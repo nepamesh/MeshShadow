@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Shadow Analysis{% endblock %}
+
+{% block content %}
+<h1>RF Shadow Analysis</h1>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value" style="color:#27ae60;">{{ coverage.coverage_pct }}%</div>
+        <div class="stat-label">Coverage</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="color:#e74c3c;">{{ (coverage.shadow_area_km2 * 0.386102)|round(2) }}</div>
+        <div class="stat-label">Shadow Area (mi²)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ coverage.dead_zone_count }}</div>
+        <div class="stat-label">Dead Zones</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ coverage.active_nodes_24h }}</div>
+        <div class="stat-label">Active Nodes (24h)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ (coverage.total_area_km2 * 0.386102)|round(2) }}</div>
+        <div class="stat-label">Total Area (mi²)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ (coverage.covered_area_km2 * 0.386102)|round(2) }}</div>
+        <div class="stat-label">Covered Area (mi²)</div>
+    </div>
+</div>
+
+<div class="charts-row">
+    <div class="chart-container">
+        <h3>Coverage Breakdown</h3>
+        <img src="/api/shadow/chart/breakdown" alt="Coverage Breakdown" onerror="this.style.display='none'">
+    </div>
+    <div class="chart-container">
+        <h3>Coverage Timeline</h3>
+        <img src="/api/shadow/chart/coverage?days=7" alt="Coverage Timeline" onerror="this.style.display='none'">
+    </div>
+</div>
+
+{% if dead_zones %}
+<h2>Active Dead Zones</h2>
+<table class="node-table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Area (mi²)</th>
+            <th>Cells</th>
+            <th>Avg Shadow</th>
+            <th>Cause</th>
+            <th>Location</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for dz in dead_zones %}
+        <tr>
+            <td><strong>{{ dz.name }}</strong></td>
+            <td>{{ (dz.area_km2 * 0.386102)|round(2) }}</td>
+            <td>{{ dz.cell_count }}</td>
+            <td>{{ dz.avg_shadow_score|round(2) }}</td>
+            <td>{{ dz.cause or 'unknown' }}</td>
+            <td class="mono">{{ dz.center_lat|round(4) }}, {{ dz.center_lon|round(4) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% if suggestions %}
+<h2>Top Placement Suggestions</h2>
+<table class="node-table">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Location</th>
+            <th>Elevation</th>
+            <th>Shadow Reduction</th>
+            <th>Cells Improved</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in suggestions %}
+        <tr>
+            <td><strong>{{ s.rank }}</strong></td>
+            <td class="mono">{{ s.latitude|round(4) }}, {{ s.longitude|round(4) }}</td>
+            <td>{{ (s.elevation_m * 3.28084)|round(0)|int if s.elevation_m else '?' }} ft</td>
+            <td>{{ (s.shadow_reduction_km2 * 0.386102)|round(2) }} mi² ({{ s.shadow_reduction_pct|round(1) }}%)</td>
+            <td>{{ s.cells_improved }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

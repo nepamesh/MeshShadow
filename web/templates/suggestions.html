@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Placement Suggestions{% endblock %}
+
+{% block content %}
+<h1>Node Placement Suggestions</h1>
+<p style="color:var(--text-secondary);margin-bottom:20px;">Optimal locations for new nodes to reduce shadow coverage. Current coverage: {{ summary.coverage_pct }}%</p>
+
+{% if suggestions %}
+<table class="node-table">
+    <thead>
+        <tr>
+            <th>Rank</th>
+            <th>Location</th>
+            <th>Elevation</th>
+            <th>Shadow Reduction</th>
+            <th>Reduction %</th>
+            <th>Cells Improved</th>
+            <th>Reasoning</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in suggestions %}
+        <tr>
+            <td><strong>#{{ s.rank }}</strong></td>
+            <td class="mono">{{ s.latitude|round(4) }}, {{ s.longitude|round(4) }}</td>
+            <td>{{ (s.elevation_m * 3.28084)|round(0)|int if s.elevation_m else '?' }} ft</td>
+            <td>{{ (s.shadow_reduction_km2 * 0.386102)|round(2) }} mi²</td>
+            <td>{{ s.shadow_reduction_pct|round(1) }}%</td>
+            <td>{{ s.cells_improved }}</td>
+            <td style="font-size:0.85em;color:var(--text-muted);max-width:300px;">{{ s.reasoning }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="color:var(--text-secondary);">No placement suggestions available yet. The coverage analysis needs to run first (every 10 minutes).</p>
+{% endif %}
+
+<h2>Evaluate a Location</h2>
+<div class="eval-form-card">
+    <form id="eval-form" style="display:flex;gap:15px;align-items:end;flex-wrap:wrap;">
+        <label>
+            Latitude: <input type="number" step="0.0001" id="eval-lat" placeholder="41.0000">
+        </label>
+        <label>
+            Longitude: <input type="number" step="0.0001" id="eval-lon" placeholder="-75.9000">
+        </label>
+        <button type="submit">Evaluate</button>
+    </form>
+</div>
+<div id="eval-result" class="eval-result-card" style="display:none;"></div>
+
+<script>
+document.getElementById('eval-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var lat = document.getElementById('eval-lat').value;
+    var lon = document.getElementById('eval-lon').value;
+    if (!lat || !lon) return;
+    fetch('/api/shadow/evaluate?lat=' + lat + '&lon=' + lon)
+        .then(r => r.json())
+        .then(data => {
+            var div = document.getElementById('eval-result');
+            div.style.display = 'block';
+            if (data.error) {
+                div.innerHTML = '<p style="color:var(--danger);">' + data.error + '</p>';
+            } else {
+                div.innerHTML = '<h3>Evaluation Result</h3>' +
+                    '<p>Location: ' + data.latitude.toFixed(4) + ', ' + data.longitude.toFixed(4) + '</p>' +
+                    '<p>Elevation: ' + (data.elevation_m ? (data.elevation_m * 3.28084).toFixed(0) + ' ft' : 'Unknown') + '</p>' +
+                    '<p>Shadow Reduction: <strong style="color:var(--accent);">' + (data.reduction_km2 * 0.386102).toFixed(2) + ' mi²</strong> (' + data.reduction_pct.toFixed(1) + '%)</p>' +
+                    '<p>Cells Improved: ' + data.cells_improved + ' / ' + data.total_shadow_cells + '</p>';
+            }
+        });
+});
+</script>
+{% endblock %}

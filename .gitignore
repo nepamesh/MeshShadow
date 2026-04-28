@@ -1,0 +1,38 @@
+# Secrets / local config
+.env
+.env.*
+!.env.example
+
+# Local data & caches
+data/
+*.db
+*.db-shm
+*.db-wal
+**/map_cache/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Build artifacts
+dist/
+build/
+
+# Claude / agent state
+.claude/

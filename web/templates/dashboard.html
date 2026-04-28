@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h1>Mesh Network Dashboard</h1>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value" id="total-nodes">{{ summary.total_nodes }}</div>
+        <div class="stat-label">Total Nodes</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="active-1h">{{ summary.active_nodes_1h }}</div>
+        <div class="stat-label">Active (1h)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="active-24h">{{ summary.active_nodes_24h }}</div>
+        <div class="stat-label">Active (24h)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="links-24h">{{ summary.total_links_24h }}</div>
+        <div class="stat-label">Link Obs (24h)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="pairs-24h">{{ summary.unique_pairs_24h }}</div>
+        <div class="stat-label">Unique Pairs (24h)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="positions">{{ summary.total_positions }}</div>
+        <div class="stat-label">Total Positions</div>
+    </div>
+</div>
+
+{% if summary.latest_weather %}
+<div class="weather-bar">
+    <h3>Current Weather (Mesh Area)</h3>
+    <span>{{ (summary.latest_weather.temperature_c * 9 / 5 + 32)|round(1) }}°F</span>
+    <span>{{ summary.latest_weather.humidity_pct|round(0)|int }}% humidity</span>
+    <span>{{ summary.latest_weather.pressure_hpa|round(1) }} hPa</span>
+    <span>Wind: {{ (summary.latest_weather.wind_speed_kmh * 0.621371)|round(1) }} mph</span>
+    {% if summary.latest_weather.cloud_cover_pct is not none %}
+    <span>Cloud: {{ summary.latest_weather.cloud_cover_pct|round(0)|int }}%</span>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="charts-row">
+    <div class="chart-container">
+        <h3>Network Activity (24h)</h3>
+        <img src="/api/chart/activity?hours=24" alt="Network Activity" onerror="this.style.display='none'">
+    </div>
+    <div class="chart-container">
+        <h3>Weather Correlation (7d)</h3>
+        <img src="/api/chart/weather?hours=168" alt="Weather Correlation" onerror="this.style.display='none'">
+    </div>
+</div>
+
+<h2>Nodes</h2>
+<table class="node-table" id="node-table">
+    <thead>
+        <tr>
+            <th class="sortable" data-sort="name">Name <span class="sort-arrow"></span></th>
+            <th>ID</th>
+            <th>Hardware</th>
+            <th>Battery</th>
+            <th class="sortable" data-sort="chutil">Ch Util <span class="sort-arrow"></span></th>
+            <th>Position</th>
+            <th class="sortable" data-sort="lastseen">Last Seen <span class="sort-arrow"></span></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for node in nodes %}
+        <tr>
+            <td data-sort-value="{{ (node.long_name or node.short_name or 'zzz')|lower }}"><a href="/node/{{ node.node_id }}">{{ node.long_name or node.short_name or '?' }}</a></td>
+            <td class="mono">{{ node.node_id }}</td>
+            <td>{{ node.hw_model or '?' }}</td>
+            <td>
+                {% if node.battery_level is not none %}
+                {{ node.battery_level }}%
+                {% if node.voltage %} ({{ node.voltage }}V){% endif %}
+                {% else %}?{% endif %}
+            </td>
+            <td data-sort-value="{{ node.channel_util if node.channel_util is not none else -1 }}">{{ node.channel_util|round(1) if node.channel_util is not none else '?' }}%</td>
+            <td>
+                {% if node.latitude and node.longitude %}
+                {{ node.latitude|round(4) }}, {{ node.longitude|round(4) }}
+                {% if node.altitude %} ({{ node.altitude }}m){% endif %}
+                {% else %}No GPS{% endif %}
+            </td>
+            <td class="time-ago" data-ts="{{ node.last_seen }}" data-sort-value="{{ node.last_seen }}"></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Black Holes{% endblock %}
+
+{% block content %}
+<h1>Routing Black Holes</h1>
+<p class="page-description">Areas where packets enter but don't come out &mdash; routing failures distinct from RF dead zones.</p>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value" style="color:#e74c3c;">{{ holes|length }}</div>
+        <div class="stat-label">Active Black Holes</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ routing_stats|length }}</div>
+        <div class="stat-label">Nodes Tracked</div>
+    </div>
+    <div class="stat-card">
+        
+        {% set affected_count = namespace(n=0) %}
+        {% for h in holes %}{% set affected_count.n = affected_count.n + (h.affected_nodes|length if h.affected_nodes else 0) %}{% endfor %}
+        <div class="stat-value" style="color:#e67e22;">{{ affected_count.n }}</div>
+        <div class="stat-label">Affected Nodes</div>
+    </div>
+    <div class="stat-card">
+        {% set asym_count = namespace(n=0) %}
+        {% for s in routing_stats %}{% if s.asymmetric_links %}{% set asym_count.n = asym_count.n + s.asymmetric_links %}{% endif %}{% endfor %}
+        <div class="stat-value">{{ asym_count.n }}</div>
+        <div class="stat-label">Asymmetric Links</div>
+    </div>
+</div>
+
+{% if holes %}
+<h2>Active Black Holes</h2>
+{% for bh in holes %}
+<div class="blackhole-card" style="border-left: 4px solid {% if bh.severity >= 0.7 %}#e74c3c{% elif bh.severity >= 0.4 %}#e67e22{% else %}#f1c40f{% endif %}; background: var(--bg-card); padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
+    <h3 style="margin-top:0;">{{ bh.name }}
+        <span class="severity-badge" style="font-size:0.8em; padding:2px 8px; border-radius:3px; background:{% if bh.severity >= 0.7 %}#e74c3c{% elif bh.severity >= 0.4 %}#e67e22{% else %}#f1c40f{% endif %}; color:#fff;">
+            {{ (bh.severity * 100)|round(0)|int }}% severity
+        </span>
+    </h3>
+    <p>{{ bh.description }}</p>
+    <div style="display:flex; gap:2rem; flex-wrap:wrap; margin-top:0.5rem;">
+        <div><strong>Type:</strong> {{ bh.evidence_type|replace('_',' ')|title }}</div>
+        <div><strong>Radius:</strong> {{ (bh.radius_km * 0.621371)|round(1) }} mi</div>
+        <div><strong>Center:</strong> <span class="mono">{{ bh.center_lat|round(4) }}, {{ bh.center_lon|round(4) }}</span></div>
+    </div>
+    {% if bh.affected_node_details %}
+    <div style="margin-top:0.5rem;">
+        <strong>Affected Nodes:</strong>
+        {% for n in bh.affected_node_details %}
+            <a href="/node/{{ n.node_id }}" class="node-link">{{ n.short_name or n.long_name or n.node_id }}</a>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endfor %}
+{% else %}
+<div style="background:var(--bg-card); border:1px solid var(--border); padding:2rem; border-radius:4px; text-align:center; margin:2rem 0;">
+    <h3 style="color:var(--accent-bright);">No Active Black Holes</h3>
+    <p>No routing black holes detected. Packet data is being collected &mdash; the analysis runs every 10 minutes.</p>
+    <p style="font-size:0.9em; color:var(--text-muted);">Black holes are detected from asymmetric links, hop anomalies, MQTT leaks, and traceroute detours.</p>
+</div>
+{% endif %}
+
+{% if routing_stats %}
+<h2>Node Routing Health</h2>
+<table class="node-table">
+    <thead>
+        <tr>
+            <th>Node</th>
+            <th>Role</th>
+            <th>Packets</th>
+            <th>As Relay</th>
+            <th>Fwd Ratio</th>
+            <th>Avg Hops</th>
+            <th>Via MQTT</th>
+            <th>Asym Links</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in routing_stats %}
+        <tr>
+            <td><a href="/node/{{ s.node_id }}">{{ s.node_id }}</a></td>
+            <td>{{ s.role or '?' }}</td>
+            <td>{{ s.packets_seen }}</td>
+            <td>{{ s.packets_as_relay }}</td>
+            <td style="color:{% if s.forwarding_ratio and s.forwarding_ratio >= 0.5 %}#27ae60{% elif s.forwarding_ratio and s.forwarding_ratio >= 0.1 %}#f1c40f{% else %}#e74c3c{% endif %}">
+                {{ (s.forwarding_ratio * 100)|round(1) if s.forwarding_ratio else '?' }}%
+            </td>
+            <td>{{ s.avg_hops_taken|round(1) if s.avg_hops_taken else '?' }}</td>
+            <td style="color:{% if s.via_mqtt_pct and s.via_mqtt_pct > 80 %}#e74c3c{% elif s.via_mqtt_pct and s.via_mqtt_pct > 50 %}#e67e22{% else %}#27ae60{% endif %}">
+                {{ s.via_mqtt_pct|round(0)|int if s.via_mqtt_pct else '?' }}%
+            </td>
+            <td>{{ s.asymmetric_links or 0 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

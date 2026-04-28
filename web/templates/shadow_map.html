@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Shadow Map{% endblock %}
+{% block body_class %}map-page{% endblock %}
+
+{% block head %}
+<style>
+    .map-wrapper {
+        width: 100%;
+        height: calc(100dvh - 200px);
+        min-height: 360px;
+        border: 1px solid #333;
+        border-radius: 5px;
+        overflow: hidden;
+    }
+    @media (min-width: 769px) {
+        .map-wrapper {
+            height: calc(100dvh - 180px);
+        }
+    }
+    .map-wrapper iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>RF Shadow Map</h1>
+<p>Red zones indicate dead zones / coverage gaps. Green markers show suggested node placements.</p>
+<div class="map-wrapper">
+    <iframe src="/shadows/data"></iframe>
+</div>
+{% endblock %}

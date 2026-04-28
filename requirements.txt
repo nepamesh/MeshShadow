@@ -1,0 +1,13 @@
+paho-mqtt>=2.0
+protobuf>=4.25
+meshtastic>=2.3
+discord.py>=2.3
+flask>=3.0
+folium>=0.15
+matplotlib>=3.8
+cryptography>=42.0
+requests>=2.31
+fpdf2>=2.7
+numpy>=1.26
+scipy>=1.12
+waitress>=3.0

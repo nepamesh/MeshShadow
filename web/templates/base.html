@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MeshPropagation{% endblock %} - NEPAMesh RF Monitor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <nav class="navbar">
+        <div class="nav-brand">
+            <a href="/">
+                <img src="{{ url_for('static', filename='nepamesh-logo.png') }}" alt="NEPAMesh" class="nav-logo">
+            </a>
+            <div class="nav-brand-text">
+                <a href="/">MeshPropagation</a>
+                <span class="nav-subtitle">RF Propagation & Shadow Monitor</span>
+            </div>
+        </div>
+        <button class="nav-toggle" aria-label="Toggle navigation" onclick="document.getElementById('nav-links').classList.toggle('open')">&#9776;</button>
+        <div id="nav-links" class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/map">Live Map</a>
+            <a href="/shadows">Shadow Map</a>
+            <a href="/shadows/dashboard">Coverage</a>
+            <a href="/suggestions">Placements</a>
+            <a href="/blackholes">Black Holes</a>
+        </div>
+    </nav>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    <footer>
+        <img src="{{ url_for('static', filename='nepamesh-logo.png') }}" alt="NEPAMesh" class="footer-logo">
+        <p>MeshPropagation &mdash; Passive RF propagation & shadow monitoring for Meshtastic networks</p>
+        <p class="footer-sub"><a href="https://nepamesh.com">NEPAMesh.com</a></p>
+    </footer>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

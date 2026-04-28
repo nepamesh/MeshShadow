@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}{{ node.long_name or node.short_name or node.node_id }}{% endblock %}
+
+{% block content %}
+<h1>{{ node.long_name or node.short_name or node.node_id }}</h1>
+
+<div class="node-info-grid">
+    <div class="info-card">
+        <h3>Identity</h3>
+        <table class="info-table">
+            <tr><td>Node ID</td><td class="mono">{{ node.node_id }}</td></tr>
+            <tr><td>Short Name</td><td>{{ node.short_name or '?' }}</td></tr>
+            <tr><td>Long Name</td><td>{{ node.long_name or '?' }}</td></tr>
+            <tr><td>Hardware</td><td>{{ node.hw_model or '?' }}</td></tr>
+        </table>
+    </div>
+    <div class="info-card">
+        <h3>Status</h3>
+        <table class="info-table">
+            <tr><td>Battery</td><td>{{ node.battery_level or '?' }}%{% if node.voltage %} ({{ node.voltage }}V){% endif %}</td></tr>
+            <tr><td>Channel Util</td><td>{{ node.channel_util|round(1) if node.channel_util is not none else '?' }}%</td></tr>
+            <tr><td>Air Util TX</td><td>{{ node.air_util_tx|round(1) if node.air_util_tx is not none else '?' }}%</td></tr>
+            {% if node.uptime_seconds %}
+            <tr><td>Uptime</td><td>{{ (node.uptime_seconds // 86400) }}d {{ (node.uptime_seconds % 86400 // 3600) }}h</td></tr>
+            {% endif %}
+        </table>
+    </div>
+    <div class="info-card">
+        <h3>Position</h3>
+        <table class="info-table">
+            {% if node.latitude and node.longitude %}
+            <tr><td>Latitude</td><td>{{ node.latitude|round(6) }}</td></tr>
+            <tr><td>Longitude</td><td>{{ node.longitude|round(6) }}</td></tr>
+            <tr><td>Altitude</td><td>{{ (node.altitude * 3.28084)|round(0)|int if node.altitude else '?' }} ft</td></tr>
+            {% else %}
+            <tr><td colspan="2">No GPS position available</td></tr>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+{% if links %}
+<h2>Active Links (24h)</h2>
+<table class="node-table">
+    <thead>
+        <tr>
+            <th>Peer</th>
+            <th>Avg SNR</th>
+            <th>Min SNR</th>
+            <th>Max SNR</th>
+            <th>Distance</th>
+            <th>Observations</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for link in links %}
+        {% set peer_id = link.node_b_id if link.node_a_id == node.node_id else link.node_a_id %}
+        <tr>
+            <td><a href="/node/{{ peer_id }}">{{ peer_id }}</a></td>
+            <td>{{ link.avg_snr|round(1) if link.avg_snr is not none else '?' }} dB</td>
+            <td>{{ link.min_snr|round(1) if link.min_snr is not none else '?' }} dB</td>
+            <td>{{ link.max_snr|round(1) if link.max_snr is not none else '?' }} dB</td>
+            <td>{{ (link.avg_distance * 0.621371)|round(1) if link.avg_distance is not none else '?' }} mi</td>
+            <td>{{ link.obs_count }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<div class="charts-row">
+    <div class="chart-container">
+        <h3>Battery History (48h)</h3>
+        <img src="/api/chart/battery/{{ node.node_id }}?hours=48" alt="Battery" onerror="this.style.display='none'">
+    </div>
+</div>
+{% endblock %}
