@@ -86,7 +86,7 @@ All configuration is via environment variables (typically through `.env`). See `
 | `MESH_CENTER_LAT` / `MESH_CENTER_LON` | Center point for grid + weather |
 | `DISCORD_TOKEN` / `DISCORD_ALERT_CHANNEL_ID` | Discord bot (omit token to skip) |
 | `WEB_PORT` / `WEB_BASE_URL` | Web dashboard |
-| `PROXY_SECRET` | Required by `/proxy/*` endpoints — generate with `openssl rand -hex 32` |
+| `PROXY_SECRET` | Shared secret for the reverse-proxy gate (see [Reverse proxy](#reverse-proxy-caddy)) — generate with `openssl rand -hex 32` |
 | `GRID_CELL_SIZE_M` / `GRID_PADDING_KM` / `MAX_NODE_RANGE_KM` | Shadow grid sizing |
 | `SHADOW_THRESHOLD` / `MIN_DEAD_ZONE_CELLS` | Dead-zone detection sensitivity |
 
@@ -109,10 +109,28 @@ generate_docs.py  Builds the setup-guide PDF
 
 SQLite (WAL mode) at `DB_PATH` (default `data/meshprop.db`). The Docker setup mounts a named volume `meshprop-data` at `/app/data`. The `data/` directory is gitignored.
 
+## Reverse proxy (Caddy)
+
+When `PROXY_SECRET` is set, the Flask app's `before_request` hook rejects any request that does not present a matching `X-Proxy-Secret` header (HMAC-compared, returns 403 otherwise). This is intentional: MeshShadow is designed to sit behind a reverse proxy — typically [Caddy](https://caddyserver.com/) — that terminates TLS, adds the shared-secret header, and forwards to the container. Direct hits to the app port from outside the proxy are blocked.
+
+Leave `PROXY_SECRET` unset in development to disable the check.
+
+Example Caddyfile fragment for a NEPAMesh-style deployment:
+
+```caddyfile
+propagation.example.com {
+    reverse_proxy 127.0.0.1:5000 {
+        header_up X-Proxy-Secret {env.PROXY_SECRET}
+    }
+}
+```
+
+Export `PROXY_SECRET` in Caddy's environment (e.g. via `systemctl edit caddy` → `Environment="PROXY_SECRET=..."`) and set the same value in the app's `.env`. Pair this with binding the app to localhost only — set `WEB_BIND_ADDR=127.0.0.1` in `.env` so the container port is unreachable except via Caddy.
+
 ## Security notes
 
 - `.env` is gitignored — never commit real tokens or broker credentials.
-- The `/proxy/*` endpoints require `PROXY_SECRET` (HMAC-compared); leave it empty in development to disable, set a strong value in production.
+- `PROXY_SECRET` gates every HTTP request; see [Reverse proxy](#reverse-proxy-caddy). Leave empty in development, set a strong value (and bind to localhost) in production.
 - The container runs as a non-root `appuser`.
 - The default `MESH_KEY` is the Meshtastic public-channel key; change it if your mesh uses a custom PSK.
 
