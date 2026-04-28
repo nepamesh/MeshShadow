@@ -136,4 +136,6 @@ Export `PROXY_SECRET` in Caddy's environment (e.g. via `systemctl edit caddy` â†
 
 ## License
 
-Add a license of your choice (e.g. MIT) before publishing.
+[GNU General Public License v3.0](LICENSE) â€” see the `LICENSE` file for the full text.
+
+MeshShadow is free software: you can redistribute it and/or modify it under the terms of the GPL v3 as published by the Free Software Foundation. It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
