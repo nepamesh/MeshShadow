@@ -55,7 +55,7 @@ RF propagation, coverage, and shadow-zone analytics for [Meshtastic](https://mes
 ## Quick start (Docker)
 
 ```bash
-git clone https://github.com/<you>/MeshShadow.git
+git clone https://github.com/nepamesh/MeshShadow.git
 cd MeshShadow
 cp .env.example .env
 # edit .env: MQTT credentials, DISCORD_TOKEN, MESH_CENTER_LAT/LON, PROXY_SECRET, etc.
