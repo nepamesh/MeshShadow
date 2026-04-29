@@ -1,5 +1,6 @@
 import logging
 import time
+from html import escape
 
 import folium
 from folium.plugins import HeatMap
@@ -91,9 +92,10 @@ def generate_shadow_map(store: DataStore):
             import math
             radius_m = math.sqrt(dz["area_km2"] * 1e6 / math.pi)
 
-            cause_str = dz.get("cause") or "unknown"
+            cause_str = escape(dz.get("cause") or "unknown")
+            dz_name = escape(dz["name"])
             popup_html = f"""
-            <b>{dz['name']}</b><br>
+            <b>{dz_name}</b><br>
             Area: {dz['area_km2'] * 0.386102:.2f} mi²<br>
             Cells: {dz['cell_count']}<br>
             Avg Shadow Score: {dz['avg_shadow_score']:.2f}<br>
@@ -112,14 +114,14 @@ def generate_shadow_map(store: DataStore):
                 weight=2,
                 dash_array="5,5",
                 popup=folium.Popup(popup_html, max_width=300),
-                tooltip=f"{dz['name']} ({dz['area_km2'] * 0.386102:.1f} mi²)",
+                tooltip=f"{dz_name} ({dz['area_km2'] * 0.386102:.1f} mi²)",
             ).add_to(dz_group)
 
             # Label
             folium.Marker(
                 location=[dz["center_lat"], dz["center_lon"]],
                 icon=folium.DivIcon(
-                    html=f'<div style="font-size:11px;font-weight:bold;color:#cc0000;white-space:nowrap;text-shadow:1px 1px #fff;">{dz["name"]}</div>',
+                    html=f'<div style="font-size:11px;font-weight:bold;color:#cc0000;white-space:nowrap;text-shadow:1px 1px #fff;">{dz_name}</div>',
                     icon_size=(150, 20),
                     icon_anchor=(75, 10),
                 ),
@@ -138,11 +140,11 @@ def generate_shadow_map(store: DataStore):
         else:
             color = "#cc0000"
 
-        label = node.get("short_name") or node.get("long_name") or node["node_id"]
+        label = escape(node.get("short_name") or node.get("long_name") or node["node_id"])
         popup_html = f"""
-        <b>{node.get('long_name') or node['node_id']}</b><br>
-        ID: {node['node_id']}<br>
-        Hardware: {node.get('hw_model', 'Unknown')}<br>
+        <b>{escape(node.get('long_name') or node['node_id'])}</b><br>
+        ID: {escape(node['node_id'])}<br>
+        Hardware: {escape(node.get('hw_model') or 'Unknown')}<br>
         Alt: {node.get('altitude', '?')}m<br>
         Last seen: {_time_ago(node['last_seen'])}
         """
@@ -181,7 +183,7 @@ def generate_shadow_map(store: DataStore):
             Elevation: {elev_str}<br>
             Shadow Reduction: {reduction_mi2:.2f} mi² ({sug['shadow_reduction_pct']:.1f}%)<br>
             Cells Improved: {sug['cells_improved']}<br>
-            <i>{sug.get('reasoning', '')}</i>
+            <i>{escape(sug.get('reasoning', ''))}</i>
             """
 
             folium.Marker(

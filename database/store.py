@@ -25,6 +25,30 @@ def _parse_node_list(raw):
 
 
 class DataStore:
+    _NODES_COLUMNS = frozenset({
+        "short_name", "long_name", "hw_model", "latitude", "longitude",
+        "altitude", "last_seen", "battery_level", "voltage", "channel_util",
+        "air_util_tx", "uptime_seconds", "role",
+    })
+    _DEAD_ZONES_COLUMNS = frozenset({
+        "name", "center_lat", "center_lon", "area_km2", "cell_count",
+        "avg_shadow_score", "max_shadow_score", "cause", "first_detected",
+        "last_updated", "active",
+    })
+    _BLACK_HOLES_COLUMNS = frozenset({
+        "name", "center_lat", "center_lon", "radius_km", "severity",
+        "evidence_type", "affected_nodes", "description", "first_detected",
+        "last_updated", "active", "notified",
+    })
+    _NODE_ROUTING_STATS_COLUMNS = frozenset({
+        "packets_seen", "packets_as_relay", "avg_hops_taken", "expected_hops",
+        "forwarding_ratio", "via_mqtt_pct", "asymmetric_links", "last_updated",
+    })
+    _WEATHER_COLUMNS = frozenset({
+        "temperature_c", "humidity_pct", "pressure_hpa", "precipitation_mm",
+        "cloud_cover_pct", "wind_speed_kmh", "wind_direction_deg",
+    })
+
     def __init__(self, db_path: str):
         self.db_path = db_path
         self._lock = threading.RLock()
@@ -57,6 +81,10 @@ class DataStore:
     # --- Nodes ---
 
     def upsert_node(self, node_id: str, **kwargs):
+        unknown = set(kwargs) - self._NODES_COLUMNS
+        if unknown:
+            log.warning("upsert_node: ignoring unknown columns: %s", unknown)
+            kwargs = {k: v for k, v in kwargs.items() if k in self._NODES_COLUMNS}
         kwargs["last_seen"] = kwargs.get("last_seen", int(time.time()))
         existing = self._fetchone("SELECT * FROM nodes WHERE node_id = ?", (node_id,))
         if existing:
@@ -172,6 +200,10 @@ class DataStore:
     # --- Weather ---
 
     def insert_weather(self, ts: int, lat: float, lon: float, **conditions) -> int:
+        unknown = set(conditions) - self._WEATHER_COLUMNS
+        if unknown:
+            log.warning("insert_weather: ignoring unknown columns: %s", unknown)
+            conditions = {k: v for k, v in conditions.items() if k in self._WEATHER_COLUMNS}
         cols = ["timestamp", "latitude", "longitude"] + list(conditions.keys())
         placeholders = ", ".join(["?"] * len(cols))
         vals = [ts, lat, lon] + list(conditions.values())
@@ -345,6 +377,10 @@ class DataStore:
         return cur.lastrowid
 
     def update_dead_zone(self, zone_id: int, **kwargs):
+        unknown = set(kwargs) - self._DEAD_ZONES_COLUMNS
+        if unknown:
+            log.warning("update_dead_zone: ignoring unknown columns: %s", unknown)
+            kwargs = {k: v for k, v in kwargs.items() if k in self._DEAD_ZONES_COLUMNS}
         kwargs["last_updated"] = int(time.time())
         sets = [f"{k} = ?" for k in kwargs]
         vals = list(kwargs.values()) + [zone_id]
@@ -605,6 +641,10 @@ class DataStore:
         return cur.lastrowid
 
     def update_black_hole(self, bh_id, **kwargs):
+        unknown = set(kwargs) - self._BLACK_HOLES_COLUMNS
+        if unknown:
+            log.warning("update_black_hole: ignoring unknown columns: %s", unknown)
+            kwargs = {k: v for k, v in kwargs.items() if k in self._BLACK_HOLES_COLUMNS}
         kwargs["last_updated"] = int(time.time())
         sets = [f"{k} = ?" for k in kwargs]
         vals = list(kwargs.values()) + [bh_id]
@@ -649,6 +689,10 @@ class DataStore:
     # --- Black Hole Detection: Node Routing Stats ---
 
     def upsert_node_routing_stats(self, node_id, **kwargs):
+        unknown = set(kwargs) - self._NODE_ROUTING_STATS_COLUMNS
+        if unknown:
+            log.warning("upsert_node_routing_stats: ignoring unknown columns: %s", unknown)
+            kwargs = {k: v for k, v in kwargs.items() if k in self._NODE_ROUTING_STATS_COLUMNS}
         kwargs["last_updated"] = int(time.time())
         existing = self._fetchone(
             "SELECT * FROM node_routing_stats WHERE node_id = ?", (node_id,))

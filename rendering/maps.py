@@ -1,5 +1,6 @@
 import logging
 import time
+from html import escape
 
 import folium
 from folium.plugins import MarkerCluster
@@ -88,8 +89,8 @@ def generate_propagation_map(store: DataStore, hours: int = 24):
         color = _snr_to_color(link["avg_snr"])
         weight = _snr_to_weight(link["obs_count"])
 
-        node_a_name = _get_node_label(store, link["node_a_id"])
-        node_b_name = _get_node_label(store, link["node_b_id"])
+        node_a_name = escape(_get_node_label(store, link["node_a_id"]))
+        node_b_name = escape(_get_node_label(store, link["node_b_id"]))
 
         popup_html = f"""
         <b>{node_a_name} ↔ {node_b_name}</b><br>
@@ -127,11 +128,11 @@ def generate_propagation_map(store: DataStore, hours: int = 24):
         else:
             marker_color = "#cc0000"
 
-        label = node["short_name"] or node["long_name"] or node["node_id"]
+        label = escape(node["short_name"] or node["long_name"] or node["node_id"])
         popup_html = f"""
-        <b>{node.get('long_name') or node['node_id']}</b><br>
-        ID: {node['node_id']}<br>
-        Hardware: {node.get('hw_model', 'Unknown')}<br>
+        <b>{escape(node.get('long_name') or node['node_id'])}</b><br>
+        ID: {escape(node['node_id'])}<br>
+        Hardware: {escape(node.get('hw_model') or 'Unknown')}<br>
         Battery: {node.get('battery_level', '?')}%
         ({node.get('voltage', '?')}V)<br>
         Ch Util: {node.get('channel_util', '?')}%<br>
@@ -202,7 +203,7 @@ def generate_node_map(store: DataStore, node_id: str, hours: int = 24):
         fill=True,
         fillColor="#0066cc",
         fillOpacity=0.8,
-        tooltip=node.get("long_name") or node["node_id"],
+        tooltip=escape(node.get("long_name") or node["node_id"]),
     ).add_to(m)
 
     # Its links
@@ -227,7 +228,7 @@ def generate_node_map(store: DataStore, node_id: str, hours: int = 24):
             continue
         avg_snr = sum(info["snrs"]) / len(info["snrs"]) if info["snrs"] else 0
         color = _snr_to_color(avg_snr)
-        peer_label = _get_node_label(store, peer_id)
+        peer_label = escape(_get_node_label(store, peer_id))
 
         folium.CircleMarker(
             location=[info["lat"], info["lon"]],
