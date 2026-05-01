@@ -129,10 +129,12 @@ def generate_shadow_map(store: DataStore):
 
         dz_group.add_to(m)
 
-    # Node markers
-    node_group = folium.FeatureGroup(name="Nodes", show=True)
+    # Node markers — active and offline in separate toggleable layers
+    active_group = folium.FeatureGroup(name="Active Nodes", show=True)
+    offline_group = folium.FeatureGroup(name="Offline Nodes (> 24h)", show=False)
+    now = int(time.time())
     for node in nodes:
-        age = int(time.time()) - node["last_seen"]
+        age = now - node["last_seen"]
         if age < 3600:
             color = "#00cc00"
         elif age < 86400:
@@ -149,6 +151,8 @@ def generate_shadow_map(store: DataStore):
         Last seen: {_time_ago(node['last_seen'])}
         """
 
+        target_group = offline_group if age >= 86400 else active_group
+
         folium.CircleMarker(
             location=[node["latitude"], node["longitude"]],
             radius=10,
@@ -159,7 +163,7 @@ def generate_shadow_map(store: DataStore):
             fillOpacity=0.8,
             popup=folium.Popup(popup_html, max_width=300),
             tooltip=label,
-        ).add_to(node_group)
+        ).add_to(target_group)
 
         folium.Marker(
             location=[node["latitude"], node["longitude"]],
@@ -168,8 +172,10 @@ def generate_shadow_map(store: DataStore):
                 icon_size=(80, 20),
                 icon_anchor=(0, -10),
             ),
-        ).add_to(node_group)
-    node_group.add_to(m)
+        ).add_to(target_group)
+
+    active_group.add_to(m)
+    offline_group.add_to(m)
 
     # Placement suggestions
     if suggestions:

@@ -6,6 +6,7 @@ import folium
 from folium.plugins import MarkerCluster
 
 from database.store import DataStore
+from analysis.spof import find_spof_nodes
 
 log = logging.getLogger(__name__)
 
@@ -164,6 +165,42 @@ def generate_propagation_map(store: DataStore, hours: int = 24):
 
     node_group.add_to(m)
 
+    # SPOF / critical node layer
+    spof_nodes = find_spof_nodes(nodes, links)
+    if spof_nodes:
+        spof_lookup = {s["node_id"]: s for s in spof_nodes}
+        spof_group = folium.FeatureGroup(name="Critical Nodes (SPOF)", show=True)
+        for node in nodes:
+            nid = node["node_id"]
+            if nid not in spof_lookup:
+                continue
+            if not node["latitude"] or not node["longitude"]:
+                continue
+            info = spof_lookup[nid]
+            label = escape(node["short_name"] or node["long_name"] or nid)
+            cut_names = []
+            for comp in info["components"]:
+                for cut_id in comp:
+                    cut_node = next((n for n in nodes if n["node_id"] == cut_id), None)
+                    cut_name = escape(
+                        (cut_node.get("short_name") or cut_node.get("long_name") or cut_id)
+                        if cut_node else cut_id
+                    )
+                    cut_names.append(cut_name)
+            cut_list = ", ".join(cut_names) if cut_names else "unknown"
+            popup_html = f"""
+            <b>&#9888; Critical Node: {label}</b><br>
+            <span style="color:#cc0000;">Removing this node would isolate {info['impact']} node(s).</span><br>
+            <b>Would isolate:</b> {cut_list}
+            """
+            folium.Marker(
+                location=[node["latitude"], node["longitude"]],
+                icon=folium.Icon(color="red", icon="exclamation-triangle", prefix="fa"),
+                popup=folium.Popup(popup_html, max_width=350),
+                tooltip=f"&#9888; SPOF: {label} (isolates {info['impact']} node{'s' if info['impact'] != 1 else ''})",
+            ).add_to(spof_group)
+        spof_group.add_to(m)
+
     # Add legend
     legend_html = """
     <div style="position:fixed;bottom:30px;left:30px;z-index:1000;background:white;
@@ -178,7 +215,9 @@ def generate_propagation_map(store: DataStore, hours: int = 24):
         <br><b>Node Status</b><br>
         <span style="color:#00cc00;">●</span> Active (< 1h)<br>
         <span style="color:#cccc00;">●</span> Stale (< 24h)<br>
-        <span style="color:#cc0000;">●</span> Offline (> 24h)
+        <span style="color:#cc0000;">●</span> Offline (> 24h)<br>
+        <br><b>Resilience</b><br>
+        <span style="color:#cc0000;">&#9888;</span> Critical (SPOF)
     </div>
     """
     m.get_root().html.add_child(folium.Element(legend_html))

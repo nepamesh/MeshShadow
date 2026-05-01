@@ -12,6 +12,7 @@ from rendering.shadow_charts import (
 )
 from analysis.placement import evaluate_placement
 from analysis.blackholes import run_black_hole_detection
+from analysis.spof import find_spof_nodes
 import config
 
 bp = Blueprint("main", __name__)
@@ -303,3 +304,21 @@ def api_traceroutes():
 def api_packet_stats():
     hours = safe_int(request.args.get("hours"), 24)
     return jsonify(_store().get_packet_stats_by_node(hours))
+
+
+@bp.route("/api/spof")
+def api_spof():
+    store = _store()
+    hours = safe_int(request.args.get("hours"), 24)
+    nodes = store.get_all_nodes()
+    links = store.get_latest_links(hours)
+    spof = find_spof_nodes(nodes, links)
+    # Enrich with node names
+    node_map = {n["node_id"]: n for n in nodes}
+    for entry in spof:
+        n = node_map.get(entry["node_id"], {})
+        entry["short_name"] = n.get("short_name")
+        entry["long_name"] = n.get("long_name")
+        entry["latitude"] = n.get("latitude")
+        entry["longitude"] = n.get("longitude")
+    return jsonify(spof)
