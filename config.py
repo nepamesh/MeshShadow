@@ -66,3 +66,8 @@ BLACKHOLE_CHECK_INTERVAL_SEC = int(os.getenv("BLACKHOLE_CHECK_SEC", "600"))  # 1
 # Channel utilization alerts
 CHANNEL_UTIL_THRESHOLD = float(os.getenv("CHANNEL_UTIL_THRESHOLD", "40.0"))  # percent
 CHANNEL_UTIL_ALERT_COOLDOWN_HOURS = int(os.getenv("CHANNEL_UTIL_COOLDOWN_HOURS", "6"))
+
+# Shadow alert quiet hours and rate limit
+SHADOW_ALERT_START_HOUR = int(os.getenv("SHADOW_ALERT_START_HOUR", "9"))    # 9am
+SHADOW_ALERT_END_HOUR   = int(os.getenv("SHADOW_ALERT_END_HOUR",   "17"))   # 5pm
+SHADOW_ALERT_COOLDOWN_MIN = int(os.getenv("SHADOW_ALERT_COOLDOWN_MIN", "30"))

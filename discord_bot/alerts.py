@@ -20,6 +20,8 @@ from datetime import datetime
 
 import discord
 
+import config
+
 from database.store import DataStore
 
 log = logging.getLogger(__name__)
@@ -92,6 +94,10 @@ class ShadowAlertDispatcher:
 
     Tracks active dead-zone ids and the last reported coverage % in memory
     (not persisted) — on bot restart the first tick re-baselines silently.
+
+    Respects a quiet-hours window and a per-send cooldown so alerts only
+    fire between SHADOW_ALERT_START_HOUR and SHADOW_ALERT_END_HOUR, at most
+    once every SHADOW_ALERT_COOLDOWN_MIN minutes.
     """
 
     def __init__(self, bot: discord.Client, store: DataStore, channel_id: int, interval: int = 300):
@@ -101,6 +107,7 @@ class ShadowAlertDispatcher:
         self.interval = interval
         self._last_dead_zone_ids = set()
         self._last_coverage_pct = None
+        self._last_sent: datetime | None = None
 
     async def start(self):
         log.info("Shadow alert dispatcher started")
@@ -117,13 +124,27 @@ class ShadowAlertDispatcher:
             except Exception as e:
                 log.error("Shadow alert error: %s", e, exc_info=True)
 
+    def _sending_allowed(self) -> bool:
+        now = datetime.now()
+        if not (config.SHADOW_ALERT_START_HOUR <= now.hour < config.SHADOW_ALERT_END_HOUR):
+            return False
+        if self._last_sent is not None:
+            elapsed = (now - self._last_sent).total_seconds() / 60
+            if elapsed < config.SHADOW_ALERT_COOLDOWN_MIN:
+                return False
+        return True
+
     async def _check_and_alert(self):
         channel = self.bot.get_channel(self.channel_id)
         if not channel:
             return
 
+        if not self._sending_allowed():
+            return
+
         zones = self.store.get_dead_zones(active_only=True)
         current_ids = {z["id"] for z in zones}
+        sent = False
 
         # New dead zones
         new_ids = current_ids - self._last_dead_zone_ids
@@ -138,6 +159,7 @@ class ShadowAlertDispatcher:
                 embed.add_field(name="Cause", value=(zone.get("cause") or "unknown").title(), inline=True)
                 embed.set_footer(text="MeshPropagation Shadow Alert")
                 await channel.send(embed=embed)
+                sent = True
 
         # Eliminated dead zones
         gone_ids = self._last_dead_zone_ids - current_ids
@@ -149,6 +171,7 @@ class ShadowAlertDispatcher:
             )
             embed.set_footer(text="MeshPropagation Shadow Alert")
             await channel.send(embed=embed)
+            sent = True
 
         # Coverage drop
         snap = self.store.get_latest_snapshot()
@@ -162,7 +185,10 @@ class ShadowAlertDispatcher:
                 )
                 embed.set_footer(text="MeshPropagation Shadow Alert")
                 await channel.send(embed=embed)
+                sent = True
 
+        if sent:
+            self._last_sent = datetime.now()
         self._last_dead_zone_ids = current_ids
         if snap:
             self._last_coverage_pct = snap["coverage_pct"]
