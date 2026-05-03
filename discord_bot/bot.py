@@ -13,9 +13,10 @@ import logging
 import discord
 from discord import app_commands
 
+import config
 from database.store import DataStore
 from .commands import setup_commands
-from .alerts import AnomalyAlertDispatcher, ShadowAlertDispatcher, BlackHoleAlertDispatcher
+from .alerts import AnomalyAlertDispatcher, ShadowAlertDispatcher, BlackHoleAlertDispatcher, DailyDigestDispatcher
 
 log = logging.getLogger(__name__)
 
@@ -66,5 +67,9 @@ def create_bot(store: DataStore, alert_channel_id: int = 0, guild_id: str = "",
             blackhole_dispatcher = BlackHoleAlertDispatcher(bot, store, alert_channel_id)
             asyncio.create_task(blackhole_dispatcher.start())
             log.info("Black hole alerts enabled for channel %d", alert_channel_id)
+
+            digest_dispatcher = DailyDigestDispatcher(bot, store, alert_channel_id)
+            asyncio.create_task(digest_dispatcher.start())
+            log.info("Daily digest enabled for channel %d (fires at %02d:00)", alert_channel_id, config.DISCORD_DIGEST_HOUR)
 
     return bot

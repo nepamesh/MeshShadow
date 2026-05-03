@@ -1,6 +1,6 @@
 """Discord alert dispatchers.
 
-Three long-running async tasks poll the database and push embeds to a
+Four long-running async tasks poll the database and push embeds to a
 configured channel:
 
 * `AnomalyAlertDispatcher` — propagation anomalies from `analysis/propagation.py`
@@ -8,6 +8,8 @@ configured channel:
 * `ShadowAlertDispatcher`  — newly activated dead zones and large coverage drops.
 * `BlackHoleAlertDispatcher` — newly flagged black-hole nodes from
   `analysis/blackholes.py`.
+* `DailyDigestDispatcher`  — one summary embed per day at DISCORD_DIGEST_HOUR
+  covering node health, coverage, anomaly counts, SPOFs, and low-battery nodes.
 
 Each dispatcher runs forever in its own asyncio task, sleeps `interval`
 seconds between checks, and swallows exceptions so a transient DB or Discord
@@ -16,12 +18,14 @@ error doesn't kill the loop.
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import date, datetime
+import time
 
 import discord
 
 import config
 
+from analysis.spof import find_spof_nodes
 from database.store import DataStore
 
 log = logging.getLogger(__name__)
@@ -287,3 +291,135 @@ class BlackHoleAlertDispatcher:
             await channel.send(embed=embed)
             self.store.mark_black_hole_notified(bh["id"])
             log.info("Sent black hole alert: %s (severity %.2f)", bh["name"], severity)
+
+
+class DailyDigestDispatcher:
+    """Sends one summary embed per day at DISCORD_DIGEST_HOUR (local time).
+
+    Covers: active nodes, coverage %, overnight anomaly counts by type,
+    active dead zones, top SPOF nodes, low-battery nodes, and active black holes.
+    """
+
+    def __init__(self, bot: discord.Client, store: DataStore, channel_id: int):
+        self.bot = bot
+        self.store = store
+        self.channel_id = channel_id
+        self._last_digest_date: date | None = None
+
+    async def start(self):
+        log.info("Daily digest dispatcher started (fires at %02d:00 local)", config.DISCORD_DIGEST_HOUR)
+        while True:
+            await asyncio.sleep(60)
+            try:
+                await self._check_and_send()
+            except Exception as e:
+                log.error("Daily digest error: %s", e, exc_info=True)
+
+    async def _check_and_send(self):
+        now = datetime.now()
+        today = now.date()
+        if now.hour < config.DISCORD_DIGEST_HOUR:
+            return
+        if self._last_digest_date == today:
+            return
+
+        channel = self.bot.get_channel(self.channel_id)
+        if not channel:
+            return
+
+        self._last_digest_date = today
+        embed = await self._build_embed(now)
+        await channel.send(embed=embed)
+        log.info("Daily digest sent for %s", today)
+
+    async def _build_embed(self, now: datetime) -> discord.Embed:
+        since_24h = int(time.time()) - 86400
+        store = self.store
+
+        # Node counts
+        summary = store.get_mesh_summary()
+        active_1h  = summary.get("active_nodes_1h", 0)
+        active_24h = summary.get("active_nodes_24h", 0)
+        total      = summary.get("total_nodes", 0)
+
+        # Coverage
+        snap = store.get_latest_snapshot()
+        coverage_pct  = f"{snap['coverage_pct']:.1f}%" if snap else "N/A"
+        shadow_mi2    = f"{snap['shadow_area_km2'] * 0.386102:.1f} mi²" if snap else "N/A"
+        dead_zones    = store.get_dead_zones(active_only=True)
+
+        # Overnight anomalies
+        anomaly_rows = store._fetchall(
+            "SELECT event_type, COUNT(*) as cnt FROM anomaly_events WHERE timestamp > ? GROUP BY event_type ORDER BY cnt DESC",
+            (since_24h,),
+        )
+        anomaly_lines = [f"{r['event_type']}: {r['cnt']}" for r in anomaly_rows] if anomaly_rows else ["None"]
+
+        # SPOF nodes
+        nodes = store.get_all_nodes()
+        links = store.get_latest_links(24)
+        spof = find_spof_nodes(nodes, links)
+        spof_lines = []
+        for s in spof[:5]:
+            node = store.get_node(s["node_id"])
+            label = (node.get("short_name") or node.get("long_name") or s["node_id"]) if node else s["node_id"]
+            spof_lines.append(f"`{label}` — isolates {s['impact']} node{'s' if s['impact'] != 1 else ''}")
+
+        # Low battery nodes (< 20%, seen in last 24h)
+        low_batt = store._fetchall(
+            """SELECT n.node_id, n.short_name, n.long_name, n.battery_level
+               FROM nodes n
+               WHERE n.battery_level IS NOT NULL AND n.battery_level < 20
+               AND n.last_seen > ?
+               ORDER BY n.battery_level ASC""",
+            (since_24h,),
+        )
+        batt_lines = []
+        for n in low_batt[:8]:
+            label = n.get("short_name") or n.get("long_name") or n["node_id"]
+            batt_lines.append(f"`{label}` {n['battery_level']}%")
+
+        # Black holes
+        black_holes = store.get_black_holes(active_only=True)
+
+        embed = discord.Embed(
+            title=f"NEPAMesh.com Daily Digest — {now.strftime('%A, %B %-d')}",
+            color=0x0066CC,
+            timestamp=now,
+        )
+
+        embed.add_field(
+            name="Nodes",
+            value=f"Active (1h): **{active_1h}** / Active (24h): **{active_24h}** / Total: **{total}**",
+            inline=False,
+        )
+        embed.add_field(
+            name="Coverage",
+            value=f"Covered: **{coverage_pct}** | Shadow: **{shadow_mi2}** | Dead zones: **{len(dead_zones)}**",
+            inline=False,
+        )
+        embed.add_field(
+            name="Anomalies (last 24h)",
+            value="\n".join(anomaly_lines),
+            inline=True,
+        )
+        embed.add_field(
+            name=f"Black Holes ({len(black_holes)} active)",
+            value=", ".join(bh["name"] for bh in black_holes[:5]) if black_holes else "None",
+            inline=True,
+        )
+        if spof_lines:
+            embed.add_field(
+                name=f"Critical Nodes — SPOF ({len(spof)})",
+                value="\n".join(spof_lines),
+                inline=False,
+            )
+        if batt_lines:
+            embed.add_field(
+                name="Low Battery (< 20%)",
+                value="\n".join(batt_lines),
+                inline=False,
+            )
+
+        embed.set_footer(text="NEPAMesh.com MeshPropagation")
+        return embed

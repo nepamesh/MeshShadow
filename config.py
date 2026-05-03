@@ -71,3 +71,6 @@ CHANNEL_UTIL_ALERT_COOLDOWN_HOURS = int(os.getenv("CHANNEL_UTIL_COOLDOWN_HOURS",
 SHADOW_ALERT_START_HOUR = int(os.getenv("SHADOW_ALERT_START_HOUR", "9"))    # 9am
 SHADOW_ALERT_END_HOUR   = int(os.getenv("SHADOW_ALERT_END_HOUR",   "17"))   # 5pm
 SHADOW_ALERT_COOLDOWN_MIN = int(os.getenv("SHADOW_ALERT_COOLDOWN_MIN", "30"))
+
+# Daily digest
+DISCORD_DIGEST_HOUR = int(os.getenv("DISCORD_DIGEST_HOUR", "8"))  # send at 8am local time
