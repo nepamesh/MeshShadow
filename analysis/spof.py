@@ -1,8 +1,8 @@
 """Single Point of Failure (articulation point) detection for the mesh link graph.
 
-Builds an undirected graph from recent link observations, then uses a
-depth-first search to find articulation points — nodes whose removal would
-split the network into disconnected components.
+Builds an undirected graph from recent link observations, then uses an
+iterative depth-first search to find articulation points — nodes whose removal
+would split the network into disconnected components.
 
 For each articulation point the impact score is computed: the total number of
 nodes that would become unreachable from the largest remaining component if
@@ -25,55 +25,24 @@ def find_spof_nodes(nodes, links):
         list of dicts:
             node_id       – the articulation point
             impact        – number of nodes cut off if this node is removed
-            components    – list of sets, each a group of isolated node IDs
+            components    – list of sorted lists, each a group of isolated node IDs
     """
     node_ids = {n["node_id"] for n in nodes}
 
     # Build undirected adjacency list (include only nodes we know about)
-    adj = {nid: set() for nid in node_ids}
+    adj = {nid: [] for nid in node_ids}
     for link in links:
         a, b = link["node_a_id"], link["node_b_id"]
         if a in adj and b in adj and a != b:
-            adj[a].add(b)
-            adj[b].add(a)
+            adj[a].append(b)
+            adj[b].append(a)
 
     # Remove isolated nodes — they can't be articulation points
     connected = {nid for nid, neighbors in adj.items() if neighbors}
     if len(connected) < 2:
         return []
 
-    # Tarjan's articulation point algorithm
-    disc = {}   # discovery timestamps
-    low = {}    # lowest disc reachable via back edges
-    parent = {}
-    ap = set()
-    timer = [0]
-
-    def dfs(u):
-        disc[u] = low[u] = timer[0]
-        timer[0] += 1
-        child_count = 0
-
-        for v in adj[u]:
-            if v not in disc:
-                child_count += 1
-                parent[v] = u
-                dfs(v)
-                low[u] = min(low[u], low[v])
-
-                # Root with 2+ children
-                if parent.get(u) is None and child_count > 1:
-                    ap.add(u)
-                # Non-root: child can't reach above u via back edges
-                if parent.get(u) is not None and low[v] >= disc[u]:
-                    ap.add(u)
-            elif v != parent.get(u):
-                low[u] = min(low[u], disc[v])
-
-    for nid in connected:
-        if nid not in disc:
-            parent[nid] = None
-            dfs(nid)
+    ap = _find_articulation_points(adj, connected)
 
     if not ap:
         return []
@@ -84,7 +53,7 @@ def find_spof_nodes(nodes, links):
         remaining = connected - {node}
         components = _connected_components(adj, remaining)
         if len(components) < 2:
-            continue  # shouldn't happen but guard anyway
+            continue
         largest = max(components, key=len)
         cut_off = [c for c in components if c is not largest]
         impact = sum(len(c) for c in cut_off)
@@ -97,6 +66,57 @@ def find_spof_nodes(nodes, links):
     results.sort(key=lambda x: x["impact"], reverse=True)
     log.debug("SPOF analysis: %d articulation points found among %d nodes", len(results), len(connected))
     return results
+
+
+def _find_articulation_points(adj, connected):
+    """Iterative Tarjan articulation-point algorithm. Returns a set of node IDs."""
+    disc = {}
+    low = {}
+    parent = {}
+    ap = set()
+    timer = [0]
+
+    for start in connected:
+        if start in disc:
+            continue
+        parent[start] = None
+        disc[start] = low[start] = timer[0]
+        timer[0] += 1
+
+        # Stack frames: [node, neighbor_list, neighbor_index, tree_child_count]
+        stack = [[start, list(adj[start]), 0, 0]]
+
+        while stack:
+            frame = stack[-1]
+            u, neighbors, idx, _ = frame
+
+            if idx < len(neighbors):
+                v = neighbors[idx]
+                frame[2] += 1  # advance neighbor index
+
+                if v not in disc:
+                    parent[v] = u
+                    disc[v] = low[v] = timer[0]
+                    timer[0] += 1
+                    frame[3] += 1  # u gains a DFS tree child
+                    stack.append([v, list(adj[v]), 0, 0])
+                elif v != parent.get(u):
+                    # Back edge — update low via discovery time
+                    low[u] = min(low[u], disc[v])
+            else:
+                # All neighbours of u processed — pop and propagate
+                stack.pop()
+                if stack:
+                    pu = stack[-1][0]
+                    low[pu] = min(low[pu], low[u])
+                    if parent.get(pu) is None:
+                        # Root is AP if it has 2+ DFS tree children
+                        if stack[-1][3] >= 2:
+                            ap.add(pu)
+                    elif low[u] >= disc[pu]:
+                        ap.add(pu)
+
+    return ap
 
 
 def _connected_components(adj, node_set):

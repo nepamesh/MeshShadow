@@ -17,6 +17,7 @@ import json
 import logging
 import math
 import time
+from html import escape
 
 from database.store import DataStore
 
@@ -286,7 +287,7 @@ def detect_hop_anomalies(store: DataStore, hours=24, mesh_center_lat=41.0,
                                      mesh_center_lat, mesh_center_lon)
 
         hop_details = ", ".join(
-            f"{n.get('short_name') or n['node_id'][-4:]}: "
+            f"{escape(n.get('short_name') or n['node_id'][-4:])}: "
             f"{n['actual_hops']:.1f} actual vs {n['expected_hops']:.1f} expected"
             for n in cluster[:5]
         )

@@ -115,6 +115,18 @@ def run_elevation_fetcher(store: DataStore, elevation_fetcher: ElevationFetcher)
 
 
 
+def run_maintenance(store: DataStore):
+    """Hourly housekeeping: purge stale nodes and old packet observations."""
+    while True:
+        time.sleep(3600)
+        try:
+            store.cleanup_old_nodes(max_age_hours=24)
+            store.cleanup_old_packets(max_age_hours=72)
+            log.info("Maintenance: pruned nodes >24h and packets >72h")
+        except Exception as e:
+            log.error("Maintenance error: %s", e, exc_info=True)
+
+
 def run_black_hole_detector(store: DataStore):
     """Periodically run black hole detection analysis."""
     # Wait for some packet data to accumulate before first run
@@ -192,6 +204,10 @@ def main():
     # 4e. Start black hole detector
     threading.Thread(target=run_black_hole_detector, args=(store,), daemon=True).start()
     log.info("Black hole detector started (interval: %ds)", config.BLACKHOLE_CHECK_INTERVAL_SEC)
+
+    # 4f. Start maintenance thread (node/packet pruning)
+    threading.Thread(target=run_maintenance, args=(store,), daemon=True).start()
+    log.info("Maintenance thread started (hourly)")
 
     # 5. Start Flask web dashboard (waitress)
     flask_app = create_flask_app(store)

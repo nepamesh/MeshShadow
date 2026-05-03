@@ -741,3 +741,8 @@ class DataStore:
         cutoff = int(time.time()) - (max_age_hours * 3600)
         self._execute("DELETE FROM packet_observations WHERE timestamp < ?", (cutoff,))
 
+    def cleanup_old_nodes(self, max_age_hours=24):
+        """Remove nodes not seen within max_age_hours to bound get_all_nodes() results."""
+        cutoff = int(time.time()) - (max_age_hours * 3600)
+        self._execute("DELETE FROM nodes WHERE last_seen < ?", (cutoff,))
+
