@@ -29,6 +29,7 @@ EVENT_COLORS = {
     "fade": 0xCC0000,
     "new_link": 0x0066CC,
     "lost_link": 0xCC8800,
+    "chan_util_high": 0xE67E22,
 }
 
 EVENT_ICONS = {
@@ -36,6 +37,7 @@ EVENT_ICONS = {
     "fade": "Signal FADE",
     "new_link": "New Link",
     "lost_link": "Link Lost",
+    "chan_util_high": "Channel Congestion",
 }
 
 

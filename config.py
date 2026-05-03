@@ -62,3 +62,7 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # Black hole detection
 BLACKHOLE_CHECK_INTERVAL_SEC = int(os.getenv("BLACKHOLE_CHECK_SEC", "600"))  # 10 minutes
+
+# Channel utilization alerts
+CHANNEL_UTIL_THRESHOLD = float(os.getenv("CHANNEL_UTIL_THRESHOLD", "40.0"))  # percent
+CHANNEL_UTIL_ALERT_COOLDOWN_HOURS = int(os.getenv("CHANNEL_UTIL_COOLDOWN_HOURS", "6"))

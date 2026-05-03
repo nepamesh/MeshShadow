@@ -17,6 +17,7 @@ import logging
 import math
 import time
 
+import config
 from database.store import DataStore
 
 log = logging.getLogger(__name__)
@@ -137,3 +138,53 @@ def detect_anomalies(store: DataStore, snr_stddev_threshold: float = 2.0,
         )
 
     log.debug("Anomaly detection completed, checked %d pairs", len(pairs))
+
+    # Channel utilization alerts
+    _check_channel_util(store, now)
+
+
+def _check_channel_util(store: DataStore, now: int):
+    """Alert when a node's average channel utilization over the last hour exceeds threshold.
+
+    Uses a per-node cooldown so the same node isn't re-alerted until it either
+    clears and re-crosses the threshold or the cooldown window expires.
+    """
+    threshold = config.CHANNEL_UTIL_THRESHOLD
+    cooldown_sec = config.CHANNEL_UTIL_ALERT_COOLDOWN_HOURS * 3600
+    since = now - 3600
+
+    rows = store._fetchall(
+        """SELECT node_id, AVG(channel_util) AS avg_util, MAX(channel_util) AS max_util
+           FROM device_metrics
+           WHERE timestamp > ? AND channel_util IS NOT NULL
+           GROUP BY node_id
+           HAVING avg_util >= ?""",
+        (since, threshold),
+    )
+
+    for row in rows:
+        node_id = row["node_id"]
+        avg_util = row["avg_util"]
+        max_util = row["max_util"]
+
+        # Skip if already alerted within the cooldown window
+        recent = store._fetchone(
+            """SELECT id FROM anomaly_events
+               WHERE event_type = 'chan_util_high' AND node_a_id = ?
+               AND timestamp > ?""",
+            (node_id, now - cooldown_sec),
+        )
+        if recent:
+            continue
+
+        node = store.get_node(node_id)
+        label = (node.get("short_name") or node.get("long_name") or node_id) if node else node_id
+        store.insert_anomaly(
+            now, "chan_util_high",
+            f"Node {label} ({node_id}) channel utilization is high: "
+            f"avg {avg_util:.1f}% (peak {max_util:.1f}%) over the last hour "
+            f"(threshold: {threshold:.0f}%). "
+            f"Heavy traffic or congestion may be degrading mesh performance.",
+            node_id,
+        )
+        log.info("Anomaly: chan_util_high on %s (avg %.1f%%)", node_id, avg_util)
