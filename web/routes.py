@@ -35,7 +35,7 @@ def _store():
 def dashboard():
     store = _store()
     summary = store.get_mesh_summary()
-    nodes = store.get_all_nodes()
+    nodes = store.get_active_nodes()
     return render_template("dashboard.html", summary=summary, nodes=nodes, config=config)
 
 
