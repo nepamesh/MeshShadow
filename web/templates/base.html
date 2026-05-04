@@ -3,19 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}MeshPropagation{% endblock %} - NEPAMesh RF Monitor</title>
+    <title>{% block title %}{{ config.SITE_NAME }}{% endblock %} - {{ config.SITE_ORG_NAME }} RF Monitor</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('main.theme_css') }}">
     {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
     <nav class="navbar">
         <div class="nav-brand">
             <a href="/">
-                <img src="{{ url_for('static', filename='nepamesh-logo.png') }}" alt="NEPAMesh" class="nav-logo">
+                {% if config.SITE_LOGO_URL %}
+                <img src="{{ config.SITE_LOGO_URL }}" alt="{{ config.SITE_ORG_NAME }}" class="nav-logo">
+                {% else %}
+                <img src="{{ url_for('static', filename='nepamesh-logo.png') }}" alt="{{ config.SITE_ORG_NAME }}" class="nav-logo">
+                {% endif %}
             </a>
             <div class="nav-brand-text">
-                <a href="/">MeshPropagation</a>
-                <span class="nav-subtitle">RF Propagation & Shadow Monitor</span>
+                <a href="/">{{ config.SITE_NAME }}</a>
+                <span class="nav-subtitle">{{ config.SITE_SUBTITLE }}</span>
             </div>
         </div>
         <button class="nav-toggle" aria-label="Toggle navigation" onclick="document.getElementById('nav-links').classList.toggle('open')">&#9776;</button>
@@ -32,9 +37,13 @@
         {% block content %}{% endblock %}
     </main>
     <footer>
-        <img src="{{ url_for('static', filename='nepamesh-logo.png') }}" alt="NEPAMesh" class="footer-logo">
-        <p>MeshPropagation &mdash; Passive RF propagation & shadow monitoring for Meshtastic networks</p>
-        <p class="footer-sub"><a href="https://nepamesh.com">NEPAMesh.com</a></p>
+        {% if config.SITE_LOGO_URL %}
+        <img src="{{ config.SITE_LOGO_URL }}" alt="{{ config.SITE_ORG_NAME }}" class="footer-logo">
+        {% else %}
+        <img src="{{ url_for('static', filename='nepamesh-logo.png') }}" alt="{{ config.SITE_ORG_NAME }}" class="footer-logo">
+        {% endif %}
+        <p>{{ config.SITE_NAME }} &mdash; Passive RF propagation & shadow monitoring for Meshtastic networks</p>
+        <p class="footer-sub"><a href="{{ config.SITE_ORG_URL }}">{{ config.SITE_ORG_NAME }}</a> &mdash; <a href="https://github.com/nepamesh/MeshShadow">GitHub</a></p>
     </footer>
     {% block scripts %}{% endblock %}
 </body>

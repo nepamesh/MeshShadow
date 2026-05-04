@@ -4,6 +4,7 @@ import os
 
 from flask import Flask, abort, request
 
+import config as site_config
 from database.store import DataStore
 
 log = logging.getLogger(__name__)
@@ -24,6 +25,10 @@ def create_flask_app(store: DataStore) -> Flask:
         provided = request.headers.get("X-Proxy-Secret", "")
         if not hmac.compare_digest(provided, proxy_secret):
             abort(403)
+
+    @app.context_processor
+    def _inject_config():
+        return {"config": site_config}
 
     from .routes import bp
     app.register_blueprint(bp)

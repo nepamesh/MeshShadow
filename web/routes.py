@@ -1,5 +1,5 @@
 import time
-from flask import Blueprint, render_template, current_app, jsonify, Response, request
+from flask import Blueprint, render_template, current_app, jsonify, Response, request, make_response
 
 from rendering.maps import generate_propagation_map, generate_node_map
 from rendering.charts import (
@@ -16,6 +16,44 @@ from analysis.spof import find_spof_nodes
 import config
 
 bp = Blueprint("main", __name__)
+
+
+@bp.route("/theme.css")
+def theme_css():
+    vars = {}
+    if config.THEME_ACCENT:
+        vars["--accent"] = config.THEME_ACCENT
+        vars["--text-primary"] = config.THEME_ACCENT
+    if config.THEME_ACCENT_DIM:
+        vars["--accent-dim"] = config.THEME_ACCENT_DIM
+        vars["--text-secondary"] = config.THEME_ACCENT_DIM
+    if config.THEME_ACCENT_BRIGHT:
+        vars["--accent-bright"] = config.THEME_ACCENT_BRIGHT
+        vars["--success"] = config.THEME_ACCENT_BRIGHT
+    if config.THEME_ACCENT_FAINT:
+        vars["--accent-faint"] = config.THEME_ACCENT_FAINT
+        vars["--bg-card-hover"] = config.THEME_ACCENT_FAINT
+        vars["--border"] = config.THEME_ACCENT_FAINT
+    if config.THEME_BG_PRIMARY:
+        vars["--bg-primary"] = config.THEME_BG_PRIMARY
+    if config.THEME_BG_SECONDARY:
+        vars["--bg-secondary"] = config.THEME_BG_SECONDARY
+        vars["--bg-card"] = config.THEME_BG_SECONDARY
+    if config.THEME_TEXT_MUTED:
+        vars["--text-muted"] = config.THEME_TEXT_MUTED
+    if config.THEME_BORDER:
+        vars["--border"] = config.THEME_BORDER
+
+    if vars:
+        declarations = "\n    ".join(f"{k}: {v};" for k, v in vars.items())
+        css = f":root {{\n    {declarations}\n}}\n"
+    else:
+        css = ""
+
+    resp = make_response(css)
+    resp.headers["Content-Type"] = "text/css"
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 def safe_int(value, default, min_val=1, max_val=8760):
@@ -36,7 +74,7 @@ def dashboard():
     store = _store()
     summary = store.get_mesh_summary()
     nodes = store.get_active_nodes()
-    return render_template("dashboard.html", summary=summary, nodes=nodes, config=config)
+    return render_template("dashboard.html", summary=summary, nodes=nodes)
 
 
 @bp.route("/map")
@@ -152,7 +190,7 @@ def shadow_dashboard():
     dead_zones = store.get_dead_zones(active_only=True)
     suggestions = store.get_placement_suggestions(limit=5)
     return render_template("shadow_dashboard.html",
-                           coverage=coverage, dead_zones=dead_zones, suggestions=suggestions, config=config)
+                           coverage=coverage, dead_zones=dead_zones, suggestions=suggestions)
 
 
 @bp.route("/suggestions")

@@ -383,7 +383,7 @@ class DailyDigestDispatcher:
         black_holes = store.get_black_holes(active_only=True)
 
         embed = discord.Embed(
-            title=f"NEPAMesh.com Daily Digest — {now.strftime('%A, %B %-d')}",
+            title=f"{config.SITE_ORG_NAME} Daily Digest — {now.strftime('%A, %B %-d')}",
             color=0x0066CC,
             timestamp=now,
         )
@@ -421,5 +421,5 @@ class DailyDigestDispatcher:
                 inline=False,
             )
 
-        embed.set_footer(text="NEPAMesh.com MeshPropagation")
+        embed.set_footer(text=f"{config.SITE_ORG_NAME} {config.SITE_NAME}")
         return embed

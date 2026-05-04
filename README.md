@@ -98,6 +98,19 @@ All configuration is via environment variables (typically through `.env`). See `
 | `CHANNEL_UTIL_COOLDOWN_HOURS` | `6` | Minimum hours between repeat channel-util alerts per node |
 | `SHADOW_ALERT_START_HOUR` / `SHADOW_ALERT_END_HOUR` | `9` / `17` | Time window for shadow/dead-zone Discord alerts |
 | `SHADOW_ALERT_COOLDOWN_MIN` | `30` | Minimum minutes between shadow alerts |
+| `SITE_NAME` | `MeshPropagation` | App name shown in nav, page titles, and Discord |
+| `SITE_SUBTITLE` | `RF Propagation & Shadow Monitor` | Subtitle shown below the nav brand |
+| `SITE_ORG_NAME` | `NEPAMesh` | Organization name shown in footer, Discord embeds, and chart titles |
+| `SITE_ORG_URL` | `https://nepamesh.com` | URL linked from the footer org name |
+| `SITE_LOGO_URL` | _(bundled logo)_ | URL to a custom logo image; leave unset to use the built-in logo |
+| `THEME_ACCENT` | `#33ff33` | Primary accent color (text, borders, highlights) |
+| `THEME_ACCENT_DIM` | `#22aa22` | Dimmed accent (secondary text) |
+| `THEME_ACCENT_BRIGHT` | `#66ff66` | Bright accent (success indicators) |
+| `THEME_ACCENT_FAINT` | `#224422` | Faint accent (card hover, borders) |
+| `THEME_BG_PRIMARY` | `#0a0a0a` | Page background color |
+| `THEME_BG_SECONDARY` | `#111111` | Card and nav background color |
+| `THEME_TEXT_MUTED` | `#228822` | Muted text color |
+| `THEME_BORDER` | `#1a3a1a` | Border color |
 
 ## Project layout
 

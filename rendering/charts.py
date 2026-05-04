@@ -8,6 +8,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+import config
 from database.store import DataStore
 from analysis.correlation import correlate_snr_weather
 
@@ -206,7 +207,7 @@ def chart_mesh_overview(store: DataStore):
 
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
-    ax.set_title(f"NEPAMesh Network Overview ({len(positioned)} nodes)")
+    ax.set_title(f"{config.SITE_ORG_NAME} Network Overview ({len(positioned)} nodes)")
     ax.grid(True, alpha=0.3)
     ax.set_aspect("equal")
 

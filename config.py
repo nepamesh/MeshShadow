@@ -77,3 +77,20 @@ DISCORD_DIGEST_HOUR = int(os.getenv("DISCORD_DIGEST_HOUR", "8"))  # send at 8am 
 
 # Node retention window
 NODE_ACTIVE_HOURS = int(os.getenv("NODE_ACTIVE_HOURS", "48"))
+
+# Branding & theme
+SITE_NAME     = os.getenv("SITE_NAME",     "MeshPropagation")
+SITE_SUBTITLE = os.getenv("SITE_SUBTITLE", "RF Propagation & Shadow Monitor")
+SITE_LOGO_URL = os.getenv("SITE_LOGO_URL", "")  # empty = use bundled logo
+SITE_ORG_NAME = os.getenv("SITE_ORG_NAME", "NEPAMesh")
+SITE_ORG_URL  = os.getenv("SITE_ORG_URL",  "https://nepamesh.com")
+
+# Theme colors — leave empty to keep the defaults in style.css
+THEME_ACCENT        = os.getenv("THEME_ACCENT",        "")  # e.g. #33ff33
+THEME_ACCENT_DIM    = os.getenv("THEME_ACCENT_DIM",    "")  # e.g. #22aa22
+THEME_ACCENT_BRIGHT = os.getenv("THEME_ACCENT_BRIGHT", "")  # e.g. #66ff66
+THEME_ACCENT_FAINT  = os.getenv("THEME_ACCENT_FAINT",  "")  # e.g. #224422
+THEME_BG_PRIMARY    = os.getenv("THEME_BG_PRIMARY",    "")  # e.g. #0a0a0a
+THEME_BG_SECONDARY  = os.getenv("THEME_BG_SECONDARY",  "")  # e.g. #111111
+THEME_TEXT_MUTED    = os.getenv("THEME_TEXT_MUTED",    "")  # e.g. #228822
+THEME_BORDER        = os.getenv("THEME_BORDER",        "")  # e.g. #1a3a1a

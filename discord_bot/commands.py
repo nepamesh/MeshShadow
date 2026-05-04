@@ -55,7 +55,7 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
         embed.add_field(name="Active Nodes (1h)", value=str(summary["active_nodes_1h"]), inline=True)
         embed.add_field(name=f"Active Nodes ({config.NODE_ACTIVE_HOURS}h)", value=str(summary["active_nodes"]), inline=True)
         embed.add_field(name=f"Link Obs ({config.NODE_ACTIVE_HOURS}h)", value=str(summary["total_links"]), inline=True)
-        embed.set_footer(text="MeshPropagation - NEPAMesh RF Monitor")
+        embed.set_footer(text=f"{config.SITE_NAME} - {config.SITE_ORG_NAME} RF Monitor")
 
         await interaction.followup.send(embed=embed, file=file)
 
@@ -73,7 +73,7 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
         )
         file = discord.File(buf, filename="activity.png")
         embed.set_image(url="attachment://activity.png")
-        embed.set_footer(text="MeshPropagation - NEPAMesh RF Monitor")
+        embed.set_footer(text=f"{config.SITE_NAME} - {config.SITE_ORG_NAME} RF Monitor")
         await interaction.followup.send(embed=embed, file=file)
 
     @tree.command(name="weather", description="Show weather vs RF propagation correlation")
@@ -186,7 +186,7 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
             embed.set_image(url="attachment://battery.png")
             files.append(file)
 
-        embed.set_footer(text="MeshPropagation - NEPAMesh RF Monitor")
+        embed.set_footer(text=f"{config.SITE_NAME} - {config.SITE_ORG_NAME} RF Monitor")
         await interaction.followup.send(embed=embed, files=files)
 
     @tree.command(name="mesh", description="Show mesh network overview")
@@ -236,7 +236,7 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
             embed.set_image(url="attachment://mesh.png")
             files.append(file)
 
-        embed.set_footer(text="MeshPropagation - NEPAMesh RF Monitor")
+        embed.set_footer(text=f"{config.SITE_NAME} - {config.SITE_ORG_NAME} RF Monitor")
         await interaction.followup.send(embed=embed, files=files)
 
 
@@ -283,7 +283,7 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
             embed.set_image(url="attachment://shadows.png")
             files.append(file)
 
-        embed.set_footer(text="MeshPropagation - NEPAMesh RF Monitor")
+        embed.set_footer(text=f"{config.SITE_NAME} - {config.SITE_ORG_NAME} RF Monitor")
         await interaction.followup.send(embed=embed, files=files)
 
     @tree.command(name="coverage", description="Show coverage percentage and breakdown")
@@ -310,7 +310,7 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
             embed.set_image(url="attachment://breakdown.png")
             files.append(file)
 
-        embed.set_footer(text="MeshPropagation - NEPAMesh RF Monitor")
+        embed.set_footer(text=f"{config.SITE_NAME} - {config.SITE_ORG_NAME} RF Monitor")
         await interaction.followup.send(embed=embed, files=files)
 
     @tree.command(name="suggest", description="Show optimal node placement suggestions")
@@ -339,7 +339,7 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
                 inline=False,
             )
 
-        embed.set_footer(text="MeshPropagation - NEPAMesh RF Monitor")
+        embed.set_footer(text=f"{config.SITE_NAME} - {config.SITE_ORG_NAME} RF Monitor")
         await interaction.followup.send(embed=embed)
 
     @tree.command(name="deadzone", description="Show details for a specific dead zone")
@@ -360,7 +360,7 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
         embed.add_field(name="Max Shadow", value=f"{zone['max_shadow_score']:.2f}", inline=True)
         embed.add_field(name="Center", value=f"`{zone['center_lat']:.4f}, {zone['center_lon']:.4f}`", inline=False)
 
-        embed.set_footer(text="MeshPropagation - NEPAMesh RF Monitor")
+        embed.set_footer(text=f"{config.SITE_NAME} - {config.SITE_ORG_NAME} RF Monitor")
         await interaction.followup.send(embed=embed)
 
     @tree.command(name="coverage-history", description="Show coverage evolution over time")
@@ -388,7 +388,7 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
         else:
             embed.description = "Not enough snapshot data yet. Snapshots are taken hourly."
 
-        embed.set_footer(text="MeshPropagation - NEPAMesh RF Monitor")
+        embed.set_footer(text=f"{config.SITE_NAME} - {config.SITE_ORG_NAME} RF Monitor")
         await interaction.followup.send(embed=embed, files=files)
 
     @tree.command(name="evaluate", description="Evaluate a proposed node placement location")
@@ -413,7 +413,7 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
         else:
             embed.description = "Would not reduce shadow coverage."
 
-        embed.set_footer(text="MeshPropagation - NEPAMesh RF Monitor")
+        embed.set_footer(text=f"{config.SITE_NAME} - {config.SITE_ORG_NAME} RF Monitor")
         await interaction.followup.send(embed=embed)
 
 
