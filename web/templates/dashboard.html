@@ -70,7 +70,7 @@
     </thead>
     <tbody>
         {% for node in nodes %}
-        <tr>
+        <tr{% if node.channel_util is not none and node.channel_util > 50 %} class="util-high"{% elif node.channel_util is not none and node.channel_util > 25 %} class="util-warn"{% endif %}>
             <td data-sort-value="{{ (node.long_name or node.short_name or 'zzz')|lower }}"><a href="/node/{{ node.node_id }}">{{ node.long_name or node.short_name or '?' }}</a></td>
             <td class="mono">{{ node.node_id }}</td>
             <td>{{ node.hw_model or '?' }}</td>
