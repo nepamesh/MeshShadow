@@ -4,6 +4,7 @@ import threading
 import logging
 import time
 
+import config
 from .schema import SCHEMA_SQL
 
 log = logging.getLogger(__name__)
@@ -109,8 +110,9 @@ class DataStore:
     def get_all_nodes(self):
         return self._fetchall("SELECT * FROM nodes ORDER BY last_seen DESC")
 
-    def get_active_nodes(self, hours: int = 24):
-        cutoff = int(time.time()) - (hours * 3600)
+    def get_active_nodes(self, hours: int = None):
+        h = hours if hours is not None else config.NODE_ACTIVE_HOURS
+        cutoff = int(time.time()) - (h * 3600)
         return self._fetchall("SELECT * FROM nodes WHERE last_seen > ? ORDER BY last_seen DESC", (cutoff,))
 
     def get_node_position(self, node_id: str):
@@ -259,14 +261,14 @@ class DataStore:
     def get_mesh_summary(self):
         now = int(time.time())
         h1 = now - 3600
-        h24 = now - 86400
+        h_active = now - (config.NODE_ACTIVE_HOURS * 3600)
         return {
             "total_nodes": self._fetchone("SELECT COUNT(*) as c FROM nodes")["c"],
             "active_nodes_1h": self._fetchone("SELECT COUNT(*) as c FROM nodes WHERE last_seen > ?", (h1,))["c"],
-            "active_nodes_24h": self._fetchone("SELECT COUNT(*) as c FROM nodes WHERE last_seen > ?", (h24,))["c"],
-            "total_links_24h": self._fetchone("SELECT COUNT(*) as c FROM link_observations WHERE timestamp > ?", (h24,))["c"],
-            "unique_pairs_24h": self._fetchone(
-                "SELECT COUNT(DISTINCT node_a_id || '-' || node_b_id) as c FROM link_observations WHERE timestamp > ?", (h24,)
+            "active_nodes": self._fetchone("SELECT COUNT(*) as c FROM nodes WHERE last_seen > ?", (h_active,))["c"],
+            "total_links": self._fetchone("SELECT COUNT(*) as c FROM link_observations WHERE timestamp > ?", (h_active,))["c"],
+            "unique_pairs": self._fetchone(
+                "SELECT COUNT(DISTINCT node_a_id || '-' || node_b_id) as c FROM link_observations WHERE timestamp > ?", (h_active,)
             )["c"],
             "total_positions": self._fetchone("SELECT COUNT(*) as c FROM positions")["c"],
             "latest_weather": self.get_latest_weather(),
@@ -488,7 +490,7 @@ class DataStore:
 
     def get_coverage_summary(self):
         now = int(time.time())
-        h24 = now - 86400
+        h24 = now - (config.NODE_ACTIVE_HOURS * 3600)
         total = self._fetchone("SELECT COUNT(*) as c FROM coverage_grid")
         shadow = self._fetchone("SELECT COUNT(*) as c FROM coverage_grid WHERE shadow_score >= 0.6")
         zones = self._fetchone("SELECT COUNT(*) as c FROM dead_zones WHERE active = 1")
@@ -507,7 +509,7 @@ class DataStore:
             "covered_area_km2": round(covered_c * cell_area_km2, 2),
             "shadow_area_km2": round(shadow_c * cell_area_km2, 2),
             "dead_zone_count": zones["c"] if zones else 0,
-            "active_nodes_24h": nodes["c"] if nodes else 0,
+            "active_nodes": nodes["c"] if nodes else 0,
         }
 
     # --- Black Hole Detection: Packet Observations ---

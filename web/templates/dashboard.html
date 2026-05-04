@@ -14,16 +14,16 @@
         <div class="stat-label">Active (1h)</div>
     </div>
     <div class="stat-card">
-        <div class="stat-value" id="active-24h">{{ summary.active_nodes_24h }}</div>
-        <div class="stat-label">Active (24h)</div>
+        <div class="stat-value" id="active-nodes">{{ summary.active_nodes }}</div>
+        <div class="stat-label">Active ({{ config.NODE_ACTIVE_HOURS }}h)</div>
     </div>
     <div class="stat-card">
-        <div class="stat-value" id="links-24h">{{ summary.total_links_24h }}</div>
-        <div class="stat-label">Link Obs (24h)</div>
+        <div class="stat-value" id="total-links">{{ summary.total_links }}</div>
+        <div class="stat-label">Link Obs ({{ config.NODE_ACTIVE_HOURS }}h)</div>
     </div>
     <div class="stat-card">
-        <div class="stat-value" id="pairs-24h">{{ summary.unique_pairs_24h }}</div>
-        <div class="stat-label">Unique Pairs (24h)</div>
+        <div class="stat-value" id="unique-pairs">{{ summary.unique_pairs }}</div>
+        <div class="stat-label">Unique Pairs ({{ config.NODE_ACTIVE_HOURS }}h)</div>
     </div>
     <div class="stat-card">
         <div class="stat-value" id="positions">{{ summary.total_positions }}</div>

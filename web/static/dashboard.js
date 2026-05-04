@@ -20,9 +20,9 @@ async function refreshStats() {
         const fields = {
             "total-nodes": data.total_nodes,
             "active-1h": data.active_nodes_1h,
-            "active-24h": data.active_nodes_24h,
-            "links-24h": data.total_links_24h,
-            "pairs-24h": data.unique_pairs_24h,
+            "active-nodes": data.active_nodes,
+            "total-links": data.total_links,
+            "unique-pairs": data.unique_pairs,
             "positions": data.total_positions,
         };
         for (const [id, val] of Object.entries(fields)) {

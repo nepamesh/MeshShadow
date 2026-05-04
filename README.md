@@ -8,9 +8,12 @@ RF propagation, coverage, and shadow-zone analytics for [Meshtastic](https://mes
 - **Coverage & shadow mapping** — builds a configurable grid around the mesh center, fetches SRTM elevation data, and computes per-cell coverage and terrain-shadowed dead zones.
 - **Placement suggestions** — recommends candidate locations to fill detected dead zones based on terrain and current coverage.
 - **Anomaly detection** — flags links whose SNR deviates from baseline and links that have gone silent.
+- **Channel utilization alerts** — notifies Discord when a node's average channel utilization exceeds a configurable threshold.
+- **Single point of failure (SPOF) detection** — identifies articulation points whose removal would partition the mesh.
 - **Black-hole detection** — identifies nodes that receive but do not relay traffic.
 - **Weather correlation** — fetches periodic weather for the mesh center and correlates with link quality.
-- **Web dashboard** — Flask + Folium maps, Matplotlib charts, served by Waitress.
+- **Daily digest** — scheduled Discord summary of mesh health, coverage, anomalies, and SPOF nodes.
+- **Web dashboard** — Flask + Folium maps (propagation, RF shadow, channel utilization), Matplotlib charts, served by Waitress.
 - **Discord bot** — slash commands for stats and dead-zone reports, plus alert push to a channel.
 
 ## Architecture
@@ -78,17 +81,23 @@ python main.py
 
 All configuration is via environment variables (typically through `.env`). See `.env.example` for the complete list. Highlights:
 
-| Variable | Purpose |
-| --- | --- |
-| `MQTT_HOST` / `MQTT_PORT` / `MQTT_USER` / `MQTT_PASS` | Meshtastic MQTT broker |
-| `MQTT_TOPICS` | Comma-separated topic filters |
-| `MESH_KEY` | Base64 PSK (defaults to the standard Meshtastic public key) |
-| `MESH_CENTER_LAT` / `MESH_CENTER_LON` | Center point for grid + weather |
-| `DISCORD_TOKEN` / `DISCORD_ALERT_CHANNEL_ID` | Discord bot (omit token to skip) |
-| `WEB_PORT` / `WEB_BASE_URL` | Web dashboard |
-| `PROXY_SECRET` | Shared secret for the reverse-proxy gate (see [Reverse proxy](#reverse-proxy-caddy)) — generate with `openssl rand -hex 32` |
-| `GRID_CELL_SIZE_M` / `GRID_PADDING_KM` / `MAX_NODE_RANGE_KM` | Shadow grid sizing |
-| `SHADOW_THRESHOLD` / `MIN_DEAD_ZONE_CELLS` | Dead-zone detection sensitivity |
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `MQTT_HOST` / `MQTT_PORT` / `MQTT_USER` / `MQTT_PASS` | — | Meshtastic MQTT broker |
+| `MQTT_TOPICS` | `msh/US/2/e/#` | Comma-separated topic filters |
+| `MESH_KEY` | Meshtastic public key | Base64 PSK |
+| `MESH_CENTER_LAT` / `MESH_CENTER_LON` | — | Center point for grid + weather |
+| `DISCORD_TOKEN` / `DISCORD_ALERT_CHANNEL_ID` | — | Discord bot (omit token to skip) |
+| `DISCORD_DIGEST_HOUR` | `8` | Hour (local time) to send the daily digest |
+| `WEB_PORT` / `WEB_BASE_URL` | `5000` | Web dashboard |
+| `PROXY_SECRET` | — | Shared secret for the reverse-proxy gate (see [Reverse proxy](#reverse-proxy-caddy)) — generate with `openssl rand -hex 32` |
+| `NODE_ACTIVE_HOURS` | `48` | How long a node is considered active; nodes not seen within this window are hidden and eventually pruned |
+| `GRID_CELL_SIZE_M` / `GRID_PADDING_KM` / `MAX_NODE_RANGE_KM` | — | Shadow grid sizing |
+| `SHADOW_THRESHOLD` / `MIN_DEAD_ZONE_CELLS` | — | Dead-zone detection sensitivity |
+| `CHANNEL_UTIL_THRESHOLD` | `40.0` | Channel utilization % that triggers a Discord alert |
+| `CHANNEL_UTIL_COOLDOWN_HOURS` | `6` | Minimum hours between repeat channel-util alerts per node |
+| `SHADOW_ALERT_START_HOUR` / `SHADOW_ALERT_END_HOUR` | `9` / `17` | Time window for shadow/dead-zone Discord alerts |
+| `SHADOW_ALERT_COOLDOWN_MIN` | `30` | Minimum minutes between shadow alerts |
 
 ## Project layout
 

@@ -5,6 +5,7 @@ import time
 
 import gc
 import numpy as np
+import config
 
 from database.store import DataStore
 
@@ -72,7 +73,7 @@ def calculate_coverage_scores(grid, nodes: list, max_range_km: float, store: Dat
         n_lat = node["latitude"]
         n_lon = node["longitude"]
 
-        obs_count = store.get_link_count_for_node(node["node_id"], hours=24)
+        obs_count = store.get_link_count_for_node(node["node_id"], hours=config.NODE_ACTIVE_HOURS)
         # Reliability boosts score but floor is 0.5 — a node with GPS position
         # exists at this location and provides coverage regardless of observations
         reliability = min(1.0, 0.5 + obs_count / 100.0)
@@ -166,7 +167,7 @@ def _compute_fingerprint(nodes, store):
     # Include link observation count (affects observation density)
     link_count = store._fetchone(
         "SELECT COUNT(*) as c FROM link_observations WHERE timestamp > ?",
-        (int(time.time()) - 86400,))
+        (int(time.time()) - (config.NODE_ACTIVE_HOURS * 3600),))
     parts.append(f"links:{link_count['c'] if link_count else 0}")
     raw = "|".join(parts)
     return hashlib.md5(raw.encode()).hexdigest()

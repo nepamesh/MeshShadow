@@ -5,6 +5,7 @@ from html import escape
 import folium
 from folium.plugins import HeatMap
 
+import config
 from database.store import DataStore
 
 log = logging.getLogger(__name__)
@@ -130,8 +131,9 @@ def generate_shadow_map(store: DataStore):
         dz_group.add_to(m)
 
     # Node markers — active and offline in separate toggleable layers
+    active_threshold = config.NODE_ACTIVE_HOURS * 3600
     active_group = folium.FeatureGroup(name="Active Nodes", show=True)
-    offline_group = folium.FeatureGroup(name="Offline Nodes (> 24h)", show=False)
+    offline_group = folium.FeatureGroup(name=f"Offline Nodes (> {config.NODE_ACTIVE_HOURS}h)", show=False)
     now = int(time.time())
     for node in nodes:
         age = now - node["last_seen"]
@@ -151,7 +153,7 @@ def generate_shadow_map(store: DataStore):
         Last seen: {_time_ago(node['last_seen'])}
         """
 
-        target_group = offline_group if age >= 86400 else active_group
+        target_group = offline_group if age >= active_threshold else active_group
 
         folium.CircleMarker(
             location=[node["latitude"], node["longitude"]],

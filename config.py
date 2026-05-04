@@ -74,3 +74,6 @@ SHADOW_ALERT_COOLDOWN_MIN = int(os.getenv("SHADOW_ALERT_COOLDOWN_MIN", "30"))
 
 # Daily digest
 DISCORD_DIGEST_HOUR = int(os.getenv("DISCORD_DIGEST_HOUR", "8"))  # send at 8am local time
+
+# Node retention window
+NODE_ACTIVE_HOURS = int(os.getenv("NODE_ACTIVE_HOURS", "48"))

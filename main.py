@@ -120,9 +120,9 @@ def run_maintenance(store: DataStore):
     while True:
         time.sleep(3600)
         try:
-            store.cleanup_old_nodes(max_age_hours=24)
+            store.cleanup_old_nodes(max_age_hours=config.NODE_ACTIVE_HOURS)
             store.cleanup_old_packets(max_age_hours=72)
-            log.info("Maintenance: pruned nodes >24h and packets >72h")
+            log.info("Maintenance: pruned nodes >%dh and packets >72h", config.NODE_ACTIVE_HOURS)
         except Exception as e:
             log.error("Maintenance error: %s", e, exc_info=True)
 

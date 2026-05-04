@@ -36,7 +36,7 @@ def dashboard():
     store = _store()
     summary = store.get_mesh_summary()
     nodes = store.get_all_nodes()
-    return render_template("dashboard.html", summary=summary, nodes=nodes)
+    return render_template("dashboard.html", summary=summary, nodes=nodes, config=config)
 
 
 @bp.route("/map")
@@ -152,7 +152,7 @@ def shadow_dashboard():
     dead_zones = store.get_dead_zones(active_only=True)
     suggestions = store.get_placement_suggestions(limit=5)
     return render_template("shadow_dashboard.html",
-                           coverage=coverage, dead_zones=dead_zones, suggestions=suggestions)
+                           coverage=coverage, dead_zones=dead_zones, suggestions=suggestions, config=config)
 
 
 @bp.route("/suggestions")

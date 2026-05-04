@@ -333,14 +333,14 @@ class DailyDigestDispatcher:
         log.info("Daily digest sent for %s", today)
 
     async def _build_embed(self, now: datetime) -> discord.Embed:
-        since_24h = int(time.time()) - 86400
+        since_active = int(time.time()) - (config.NODE_ACTIVE_HOURS * 3600)
         store = self.store
 
         # Node counts
         summary = store.get_mesh_summary()
-        active_1h  = summary.get("active_nodes_1h", 0)
-        active_24h = summary.get("active_nodes_24h", 0)
-        total      = summary.get("total_nodes", 0)
+        active_1h     = summary.get("active_nodes_1h", 0)
+        active_window = summary.get("active_nodes", 0)
+        total         = summary.get("total_nodes", 0)
 
         # Coverage
         snap = store.get_latest_snapshot()
@@ -351,7 +351,7 @@ class DailyDigestDispatcher:
         # Overnight anomalies
         anomaly_rows = store._fetchall(
             "SELECT event_type, COUNT(*) as cnt FROM anomaly_events WHERE timestamp > ? GROUP BY event_type ORDER BY cnt DESC",
-            (since_24h,),
+            (since_active,),
         )
         anomaly_lines = [f"{r['event_type']}: {r['cnt']}" for r in anomaly_rows] if anomaly_rows else ["None"]
 
@@ -372,7 +372,7 @@ class DailyDigestDispatcher:
                WHERE n.battery_level IS NOT NULL AND n.battery_level < 20
                AND n.last_seen > ?
                ORDER BY n.battery_level ASC""",
-            (since_24h,),
+            (since_active,),
         )
         batt_lines = []
         for n in low_batt[:8]:
@@ -390,7 +390,7 @@ class DailyDigestDispatcher:
 
         embed.add_field(
             name="Nodes",
-            value=f"Active (1h): **{active_1h}** / Active (24h): **{active_24h}** / Total: **{total}**",
+            value=f"Active (1h): **{active_1h}** / Active ({config.NODE_ACTIVE_HOURS}h): **{active_window}** / Total: **{total}**",
             inline=False,
         )
         embed.add_field(
@@ -399,7 +399,7 @@ class DailyDigestDispatcher:
             inline=False,
         )
         embed.add_field(
-            name="Anomalies (last 24h)",
+            name=f"Anomalies (last {config.NODE_ACTIVE_HOURS}h)",
             value="\n".join(anomaly_lines),
             inline=True,
         )

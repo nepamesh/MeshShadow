@@ -18,8 +18,8 @@
         <div class="stat-label">Dead Zones</div>
     </div>
     <div class="stat-card">
-        <div class="stat-value">{{ coverage.active_nodes_24h }}</div>
-        <div class="stat-label">Active Nodes (24h)</div>
+        <div class="stat-value">{{ coverage.active_nodes }}</div>
+        <div class="stat-label">Active Nodes ({{ config.NODE_ACTIVE_HOURS }}h)</div>
     </div>
     <div class="stat-card">
         <div class="stat-value">{{ (coverage.total_area_km2 * 0.386102)|round(2) }}</div>

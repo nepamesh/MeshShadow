@@ -41,7 +41,7 @@ def detect_anomalies(store: DataStore, snr_stddev_threshold: float = 2.0,
     """
     now = int(time.time())
     h1 = now - 3600
-    h24 = now - 86400
+    h24 = now - (config.NODE_ACTIVE_HOURS * 3600)
 
     # Get all unique pairs with enough history
     pairs = store._fetchall(

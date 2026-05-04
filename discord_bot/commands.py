@@ -53,8 +53,8 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
 
         summary = store.get_mesh_summary()
         embed.add_field(name="Active Nodes (1h)", value=str(summary["active_nodes_1h"]), inline=True)
-        embed.add_field(name="Active Nodes (24h)", value=str(summary["active_nodes_24h"]), inline=True)
-        embed.add_field(name="Link Obs (24h)", value=str(summary["total_links_24h"]), inline=True)
+        embed.add_field(name=f"Active Nodes ({config.NODE_ACTIVE_HOURS}h)", value=str(summary["active_nodes"]), inline=True)
+        embed.add_field(name=f"Link Obs ({config.NODE_ACTIVE_HOURS}h)", value=str(summary["total_links"]), inline=True)
         embed.set_footer(text="MeshPropagation - NEPAMesh RF Monitor")
 
         await interaction.followup.send(embed=embed, file=file)
@@ -203,9 +203,9 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
         )
         embed.add_field(name="Total Nodes", value=str(summary["total_nodes"]), inline=True)
         embed.add_field(name="Active (1h)", value=str(summary["active_nodes_1h"]), inline=True)
-        embed.add_field(name="Active (24h)", value=str(summary["active_nodes_24h"]), inline=True)
-        embed.add_field(name="Link Observations (24h)", value=str(summary["total_links_24h"]), inline=True)
-        embed.add_field(name="Unique Pairs (24h)", value=str(summary["unique_pairs_24h"]), inline=True)
+        embed.add_field(name=f"Active ({config.NODE_ACTIVE_HOURS}h)", value=str(summary["active_nodes"]), inline=True)
+        embed.add_field(name=f"Link Observations ({config.NODE_ACTIVE_HOURS}h)", value=str(summary["total_links"]), inline=True)
+        embed.add_field(name=f"Unique Pairs ({config.NODE_ACTIVE_HOURS}h)", value=str(summary["unique_pairs"]), inline=True)
         embed.add_field(name="Total Positions", value=str(summary["total_positions"]), inline=True)
 
         # Top links by observation count
