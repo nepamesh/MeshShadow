@@ -254,7 +254,15 @@ h3 {
     color: #e6a817;
 }
 
+.node-table tbody tr.util-warn td a {
+    color: #e6a817;
+}
+
 .node-table tbody tr.util-high td {
+    color: #e05252;
+}
+
+.node-table tbody tr.util-high td a {
     color: #e05252;
 }
 
