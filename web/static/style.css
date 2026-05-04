@@ -250,20 +250,12 @@ h3 {
     background: var(--bg-card-hover);
 }
 
-.node-table tbody tr.util-warn {
-    background: rgba(204, 136, 0, 0.18);
+.node-table tbody tr.util-warn td {
+    color: #e6a817;
 }
 
-.node-table tbody tr.util-warn:hover {
-    background: rgba(204, 136, 0, 0.28);
-}
-
-.node-table tbody tr.util-high {
-    background: rgba(180, 40, 40, 0.22);
-}
-
-.node-table tbody tr.util-high:hover {
-    background: rgba(180, 40, 40, 0.32);
+.node-table tbody tr.util-high td {
+    color: #e05252;
 }
 
 .node-table a {
