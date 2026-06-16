@@ -17,6 +17,10 @@ DB_PATH = os.getenv("DB_PATH", os.path.join(os.path.dirname(__file__), "data", "
 MESH_CENTER_LAT = float(os.getenv("MESH_CENTER_LAT", "41.0"))
 MESH_CENTER_LON = float(os.getenv("MESH_CENTER_LON", "-75.9"))
 
+# Reject position reports from nodes further than this from the mesh center.
+# Filters out nodes from the national MQTT channel that are not local.
+MESH_REGION_RADIUS_KM = float(os.getenv("MESH_REGION_RADIUS_KM", "200"))
+
 # Weather
 WEATHER_INTERVAL_SEC = int(os.getenv("WEATHER_INTERVAL_SEC", "900"))  # 15 minutes
 
@@ -46,6 +50,7 @@ ANOMALY_LOST_LINK_HOURS = int(os.getenv("ANOMALY_LOST_LINK_HOURS", "6"))
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN", "")
 DISCORD_ALERT_CHANNEL_ID = int(os.getenv("DISCORD_ALERT_CHANNEL_ID", "0"))
 DISCORD_GUILD_ID = os.getenv("DISCORD_GUILD_ID", "")  # optional, for faster slash command sync
+DISCORD_BLACKHOLE_ALERTS = os.getenv("DISCORD_BLACKHOLE_ALERTS", "true").lower() not in ("false", "0", "no")
 
 # Web dashboard
 WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
@@ -77,6 +82,11 @@ DISCORD_DIGEST_HOUR = int(os.getenv("DISCORD_DIGEST_HOUR", "8"))  # send at 8am 
 
 # Node retention window
 NODE_ACTIVE_HOURS = int(os.getenv("NODE_ACTIVE_HOURS", "48"))
+
+# Stale node trimming: nodes not heard from in this many days are deleted from
+# the database and hidden from the map and shadow map. Independent of the
+# (shorter) NODE_ACTIVE_HOURS dashboard "active" window.
+STALE_NODE_DAYS = int(os.getenv("STALE_NODE_DAYS", "7"))
 
 # Branding & theme
 SITE_NAME     = os.getenv("SITE_NAME",     "MeshPropagation")

@@ -64,9 +64,12 @@ def create_bot(store: DataStore, alert_channel_id: int = 0, guild_id: str = "",
             asyncio.create_task(shadow_dispatcher.start())
             log.info("Shadow alerts enabled for channel %d", alert_channel_id)
 
-            blackhole_dispatcher = BlackHoleAlertDispatcher(bot, store, alert_channel_id)
-            asyncio.create_task(blackhole_dispatcher.start())
-            log.info("Black hole alerts enabled for channel %d", alert_channel_id)
+            if config.DISCORD_BLACKHOLE_ALERTS:
+                blackhole_dispatcher = BlackHoleAlertDispatcher(bot, store, alert_channel_id)
+                asyncio.create_task(blackhole_dispatcher.start())
+                log.info("Black hole alerts enabled for channel %d", alert_channel_id)
+            else:
+                log.info("Black hole alerts disabled (DISCORD_BLACKHOLE_ALERTS=false)")
 
             digest_dispatcher = DailyDigestDispatcher(bot, store, alert_channel_id)
             asyncio.create_task(digest_dispatcher.start())

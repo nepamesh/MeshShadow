@@ -53,9 +53,11 @@ def _time_ago(ts):
         return f"{diff // 86400}d ago"
 
 
-def generate_propagation_map(store: DataStore, hours: int = 24):
+def generate_propagation_map(store: DataStore, hours: int = 168):
     """Generate a Folium HTML map showing nodes and link quality."""
     nodes = store.get_all_nodes()
+    active_cutoff = int(time.time()) - (hours * 3600)
+    nodes = [n for n in nodes if (n["last_seen"] or 0) > active_cutoff]
     links = store.get_latest_links(hours)
 
     # Find center of all nodes with positions

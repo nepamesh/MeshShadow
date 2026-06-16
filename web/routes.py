@@ -85,7 +85,7 @@ def map_page():
 @bp.route("/map/data")
 def map_data():
     store = _store()
-    hours = safe_int(request_arg("hours"), 24)
+    hours = safe_int(request_arg("hours"), 168)
     html = generate_propagation_map(store, hours)
     return Response(html, mimetype="text/html")
 

@@ -87,11 +87,14 @@ All configuration is via environment variables (typically through `.env`). See `
 | `MQTT_TOPICS` | `msh/US/2/e/#` | Comma-separated topic filters |
 | `MESH_KEY` | Meshtastic public key | Base64 PSK |
 | `MESH_CENTER_LAT` / `MESH_CENTER_LON` | — | Center point for grid + weather |
+| `MESH_REGION_RADIUS_KM` | `200` | Reject position reports from nodes further than this from the mesh center; out-of-region nodes are also purged hourly |
+| `STALE_NODE_DAYS` | `7` | Nodes (and all their time-series data) not heard from in this many days are deleted by the hourly maintenance job |
 | `DISCORD_TOKEN` / `DISCORD_ALERT_CHANNEL_ID` | — | Discord bot (omit token to skip) |
 | `DISCORD_DIGEST_HOUR` | `8` | Hour (local time) to send the daily digest |
+| `DISCORD_BLACKHOLE_ALERTS` | `true` | Set to `false` to silence black-hole detection Discord alerts |
 | `WEB_PORT` / `WEB_BASE_URL` | `5000` | Web dashboard |
 | `PROXY_SECRET` | — | Shared secret for the reverse-proxy gate (see [Reverse proxy](#reverse-proxy-caddy)) — generate with `openssl rand -hex 32` |
-| `NODE_ACTIVE_HOURS` | `48` | How long a node is considered active; nodes not seen within this window are hidden and eventually pruned |
+| `NODE_ACTIVE_HOURS` | `48` | How long a node is considered "active" on the dashboard node list; independent of `STALE_NODE_DAYS` |
 | `GRID_CELL_SIZE_M` / `GRID_PADDING_KM` / `MAX_NODE_RANGE_KM` | — | Shadow grid sizing |
 | `SHADOW_THRESHOLD` / `MIN_DEAD_ZONE_CELLS` | — | Dead-zone detection sensitivity |
 | `CHANNEL_UTIL_THRESHOLD` | `40.0` | Channel utilization % that triggers a Discord alert |
@@ -130,6 +133,8 @@ generate_docs.py  Builds the setup-guide PDF
 ## Data persistence
 
 SQLite (WAL mode) at `DB_PATH` (default `data/meshprop.db`). The Docker setup mounts a named volume `meshprop-data` at `/app/data`. The `data/` directory is gitignored.
+
+An hourly maintenance job prunes all time-series data (positions, link observations, device metrics, weather, traceroutes) older than `STALE_NODE_DAYS` (default 7 days), and removes any nodes that have not been heard from within that window. Packet observations are pruned on a shorter 72-hour cycle. Nodes outside `MESH_REGION_RADIUS_KM` are also removed each hour; incoming position reports beyond that radius are silently dropped at ingest.
 
 ## Reverse proxy (Caddy)
 

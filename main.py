@@ -116,13 +116,15 @@ def run_elevation_fetcher(store: DataStore, elevation_fetcher: ElevationFetcher)
 
 
 def run_maintenance(store: DataStore):
-    """Hourly housekeeping: purge stale nodes and old packet observations."""
+    """Hourly housekeeping: purge stale nodes, packets, and all time-series data."""
     while True:
         time.sleep(3600)
         try:
-            store.cleanup_old_nodes(max_age_hours=config.NODE_ACTIVE_HOURS)
+            retention_hours = config.STALE_NODE_DAYS * 24
+            store.cleanup_old_nodes(max_age_hours=retention_hours)
+            store.cleanup_old_timeseries(max_age_hours=retention_hours)
             store.cleanup_old_packets(max_age_hours=72)
-            log.info("Maintenance: pruned nodes >%dh and packets >72h", config.NODE_ACTIVE_HOURS)
+            log.info("Maintenance: pruned all data >%dd, packets >72h", config.STALE_NODE_DAYS)
         except Exception as e:
             log.error("Maintenance error: %s", e, exc_info=True)
 

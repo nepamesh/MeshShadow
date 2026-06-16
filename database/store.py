@@ -288,7 +288,19 @@ class DataStore:
 
     # --- Shadow Mapper: Nodes with Positions ---
 
-    def get_nodes_with_positions(self):
+    def get_nodes_with_positions(self, max_age_hours: int = None):
+        """Positioned nodes seen within the active window (default config.NODE_ACTIVE_HOURS).
+
+        Pass max_age_hours=0 to include every positioned node regardless of age.
+        """
+        hours = max_age_hours if max_age_hours is not None else config.NODE_ACTIVE_HOURS
+        if hours and hours > 0:
+            cutoff = int(time.time()) - (hours * 3600)
+            return self._fetchall(
+                "SELECT * FROM nodes WHERE latitude IS NOT NULL AND longitude IS NOT NULL "
+                "AND last_seen > ? ORDER BY last_seen DESC",
+                (cutoff,),
+            )
         return self._fetchall(
             "SELECT * FROM nodes WHERE latitude IS NOT NULL AND longitude IS NOT NULL ORDER BY last_seen DESC"
         )
@@ -744,7 +756,46 @@ class DataStore:
         self._execute("DELETE FROM packet_observations WHERE timestamp < ?", (cutoff,))
 
     def cleanup_old_nodes(self, max_age_hours=24):
-        """Remove nodes not seen within max_age_hours to bound get_all_nodes() results."""
+        """Trim stale nodes not seen within max_age_hours (see config.STALE_NODE_DAYS)."""
         cutoff = int(time.time()) - (max_age_hours * 3600)
         self._execute("DELETE FROM nodes WHERE last_seen < ?", (cutoff,))
+
+    def cleanup_old_timeseries(self, max_age_hours=168):
+        """Prune all time-series tables to the given retention window."""
+        cutoff = int(time.time()) - (max_age_hours * 3600)
+        self._execute("DELETE FROM link_observations WHERE timestamp < ?", (cutoff,))
+        self._execute("DELETE FROM positions WHERE timestamp < ?", (cutoff,))
+        self._execute("DELETE FROM device_metrics WHERE timestamp < ?", (cutoff,))
+        self._execute("DELETE FROM weather_observations WHERE timestamp < ?", (cutoff,))
+        self._execute("DELETE FROM traceroutes WHERE timestamp < ?", (cutoff,))
+
+    def cleanup_out_of_region(self, center_lat: float, center_lon: float, radius_km: float):
+        """Delete nodes outside the service area along with all their dependent rows."""
+        import math
+        nodes = self._fetchall(
+            "SELECT node_id, latitude, longitude FROM nodes WHERE latitude IS NOT NULL AND longitude IS NOT NULL"
+        )
+        out_of_region = []
+        for n in nodes:
+            dlat = math.radians(n["latitude"] - center_lat)
+            dlon = math.radians(n["longitude"] - center_lon)
+            a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(center_lat)) * math.cos(math.radians(n["latitude"])) * math.sin(dlon / 2) ** 2
+            dist = 6371.0 * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            if dist > radius_km:
+                out_of_region.append(n["node_id"])
+        if not out_of_region:
+            return 0
+        with self._lock:
+            self._conn.execute("PRAGMA foreign_keys=OFF")
+            for nid in out_of_region:
+                self._conn.execute("DELETE FROM positions WHERE node_id = ?", (nid,))
+                self._conn.execute("DELETE FROM device_metrics WHERE node_id = ?", (nid,))
+                self._conn.execute("DELETE FROM packet_observations WHERE from_id = ?", (nid,))
+                self._conn.execute("DELETE FROM traceroutes WHERE origin_id = ? OR destination_id = ?", (nid, nid))
+                self._conn.execute("DELETE FROM link_observations WHERE node_a_id = ? OR node_b_id = ?", (nid, nid))
+                self._conn.execute("DELETE FROM node_routing_stats WHERE node_id = ?", (nid,))
+                self._conn.execute("DELETE FROM nodes WHERE node_id = ?", (nid,))
+            self._conn.commit()
+            self._conn.execute("PRAGMA foreign_keys=ON")
+        return len(out_of_region)
 
