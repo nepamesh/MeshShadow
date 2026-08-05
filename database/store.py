@@ -258,6 +258,61 @@ class DataStore:
 
     # --- Summary ---
 
+    def get_ledger_stats(self):
+        """Aggregate stats for the nepamesh.com Node Ledger dashboard."""
+        now = int(time.time())
+        h1 = now - 3600
+        h24 = now - 86400
+        d14 = now - 14 * 86400
+        d30 = now - 30 * 86400
+
+        nodes_online = self._fetchone("SELECT COUNT(*) as c FROM nodes WHERE last_seen > ?", (h1,))["c"]
+        alerts_24h = self._fetchone(
+            "SELECT COUNT(*) as c FROM anomaly_events WHERE timestamp > ?", (h24,)
+        )["c"]
+
+        # Uptime: fraction of the last 24 hourly buckets with at least one packet observed.
+        hourly = self._fetchall(
+            """SELECT CAST((timestamp - ?) / 3600 AS INTEGER) as bucket
+               FROM packet_observations WHERE timestamp > ? GROUP BY bucket""",
+            (h24, h24),
+        )
+        uptime_pct = round(min(len(hourly), 24) / 24 * 100, 1)
+
+        # Nodes-online trend: hourly coverage_snapshots over the last 30 days.
+        snapshots = self._fetchall(
+            "SELECT active_nodes FROM coverage_snapshots WHERE timestamp > ? ORDER BY timestamp", (d30,)
+        )
+        nodes_trend = [s["active_nodes"] for s in snapshots][-30:]
+
+        # Uptime trend: which of the last 30 days had any packet activity at all.
+        daily = self._fetchall(
+            """SELECT CAST((timestamp - ?) / 86400 AS INTEGER) as day
+               FROM packet_observations WHERE timestamp > ? GROUP BY day""",
+            (d30, d30),
+        )
+        days_with_data = {d["day"] for d in daily}
+        uptime_trend = [100.0 if d in days_with_data else 0.0 for d in range(30)]
+
+        # Alerts trend: daily anomaly counts over the last 14 days.
+        alerts_daily = self._fetchall(
+            """SELECT CAST((timestamp - ?) / 86400 AS INTEGER) as day, COUNT(*) as c
+               FROM anomaly_events WHERE timestamp > ? GROUP BY day""",
+            (d14, d14),
+        )
+        alerts_by_day = {d["day"]: d["c"] for d in alerts_daily}
+        alerts_trend = [alerts_by_day.get(d, 0) for d in range(14)]
+
+        return {
+            "generated_at": now,
+            "nodes_online": nodes_online,
+            "alerts_24h": alerts_24h,
+            "uptime_pct": uptime_pct,
+            "nodes_trend": nodes_trend,
+            "uptime_trend": uptime_trend,
+            "alerts_trend": alerts_trend,
+        }
+
     def get_mesh_summary(self):
         now = int(time.time())
         h1 = now - 3600

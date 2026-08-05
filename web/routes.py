@@ -119,6 +119,13 @@ def api_summary():
     return jsonify(_store().get_mesh_summary())
 
 
+@bp.route("/api/ledger")
+def api_ledger():
+    resp = jsonify(_store().get_ledger_stats())
+    resp.headers["Access-Control-Allow-Origin"] = "https://nepamesh.com"
+    return resp
+
+
 @bp.route("/api/nodes")
 def api_nodes():
     return jsonify(_store().get_all_nodes())
