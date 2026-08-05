@@ -249,4 +249,17 @@ CREATE TABLE IF NOT EXISTS node_routing_stats (
     FOREIGN KEY (node_id) REFERENCES nodes(node_id)
 );
 
+-- Node ownership claims: lets a Discord user opt into a DM when a node
+-- they own has gone quiet.
+
+CREATE TABLE IF NOT EXISTS node_claims (
+    discord_user_id     TEXT NOT NULL,
+    node_id             TEXT NOT NULL,
+    claimed_at          INTEGER NOT NULL,
+    notified_offline    INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (discord_user_id, node_id),
+    FOREIGN KEY (node_id) REFERENCES nodes(node_id)
+);
+CREATE INDEX IF NOT EXISTS idx_node_claims_node ON node_claims(node_id);
+
 """

@@ -80,6 +80,17 @@ SHADOW_ALERT_COOLDOWN_MIN = int(os.getenv("SHADOW_ALERT_COOLDOWN_MIN", "30"))
 # Daily digest
 DISCORD_DIGEST_HOUR = int(os.getenv("DISCORD_DIGEST_HOUR", "8"))  # send at 8am local time
 
+# Router offline alerts — routers (ROUTER/ROUTER_CLIENT/ROUTER_LATE role) are
+# backbone nodes; flag them going quiet separately from ordinary clients.
+DISCORD_ROUTER_OFFLINE_ALERTS = os.getenv("DISCORD_ROUTER_OFFLINE_ALERTS", "true").lower() not in ("false", "0", "no")
+ROUTER_OFFLINE_HOURS = int(os.getenv("ROUTER_OFFLINE_HOURS", "6"))
+ROUTER_OFFLINE_CHECK_INTERVAL_SEC = int(os.getenv("ROUTER_OFFLINE_CHECK_SEC", "600"))  # 10 minutes
+
+# Claimed-node DMs — a user can `/claim-node` a node and get DM'd once it has
+# been offline this long, and again when it comes back.
+CLAIMED_NODE_OFFLINE_HOURS = int(os.getenv("CLAIMED_NODE_OFFLINE_HOURS", "24"))
+CLAIMED_NODE_CHECK_INTERVAL_SEC = int(os.getenv("CLAIMED_NODE_CHECK_SEC", "900"))  # 15 minutes
+
 # Node retention window
 NODE_ACTIVE_HOURS = int(os.getenv("NODE_ACTIVE_HOURS", "48"))
 

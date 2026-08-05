@@ -114,16 +114,7 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
     async def node(interaction: discord.Interaction, name: str):
         await interaction.response.defer()
 
-        # Find node by name or ID
-        node_data = store.get_node(name)
-        if not node_data:
-            all_nodes = store.get_all_nodes()
-            for n in all_nodes:
-                if (n.get("short_name", "").lower() == name.lower() or
-                        n.get("long_name", "").lower() == name.lower()):
-                    node_data = n
-                    break
-
+        node_data = _find_node(store, name)
         if not node_data:
             await interaction.followup.send(f"Node '{name}' not found.")
             return
@@ -654,6 +645,72 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
 
         embed.set_footer(text="MeshPropagation Black Hole Detection")
         await interaction.followup.send(embed=embed)
+
+    @tree.command(name="claim-node", description="Claim a node so you get DM'd if it goes offline")
+    @app_commands.describe(name="Node name or ID (e.g. Leo or !abcd1234)")
+    async def claim_node(interaction: discord.Interaction, name: str):
+        await interaction.response.defer(ephemeral=True)
+        node_data = _find_node(store, name)
+        if not node_data:
+            await interaction.followup.send(f"Node '{name}' not found.")
+            return
+
+        node_id = node_data["node_id"]
+        label = node_data.get("short_name") or node_data.get("long_name") or node_id
+        store.claim_node(str(interaction.user.id), node_id)
+        await interaction.followup.send(
+            f"Claimed **{label}**. I'll DM you here if it goes offline for "
+            f"{config.CLAIMED_NODE_OFFLINE_HOURS}+ hours, and again when it's back."
+        )
+
+    @tree.command(name="unclaim-node", description="Stop watching a node you previously claimed")
+    @app_commands.describe(name="Node name or ID (e.g. Leo or !abcd1234)")
+    async def unclaim_node(interaction: discord.Interaction, name: str):
+        await interaction.response.defer(ephemeral=True)
+        node_data = _find_node(store, name)
+        node_id = node_data["node_id"] if node_data else name
+        label = (node_data.get("short_name") or node_data.get("long_name") or node_id) if node_data else name
+
+        removed = store.unclaim_node(str(interaction.user.id), node_id)
+        if removed:
+            await interaction.followup.send(f"Unclaimed **{label}**.")
+        else:
+            await interaction.followup.send(f"You haven't claimed **{label}**.")
+
+    @tree.command(name="my-nodes", description="List the nodes you've claimed")
+    async def my_nodes(interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        claims = store.get_claims_for_user(str(interaction.user.id))
+        if not claims:
+            await interaction.followup.send(
+                "You haven't claimed any nodes yet. Use `/claim-node <name>` to watch one."
+            )
+            return
+
+        embed = discord.Embed(title="Your Claimed Nodes", color=0x4ECDC4)
+        now = int(time.time())
+        for c in claims:
+            label = c.get("short_name") or c.get("long_name") or c["node_id"]
+            if c.get("last_seen") is None:
+                status = "never seen"
+            else:
+                age_h = (now - c["last_seen"]) / 3600
+                status = f"offline {age_h:.1f}h" if age_h >= config.CLAIMED_NODE_OFFLINE_HOURS else f"seen {age_h:.1f}h ago"
+            embed.add_field(name=label, value=f"`{c['node_id']}` — {status}", inline=False)
+        embed.set_footer(text=f"DM alert after {config.CLAIMED_NODE_OFFLINE_HOURS}h offline")
+        await interaction.followup.send(embed=embed)
+
+
+def _find_node(store: DataStore, name: str):
+    """Look up a node by ID (exact) or by short/long name (case-insensitive)."""
+    node_data = store.get_node(name)
+    if node_data:
+        return node_data
+    for n in store.get_all_nodes():
+        if (n.get("short_name", "").lower() == name.lower() or
+                n.get("long_name", "").lower() == name.lower()):
+            return n
+    return None
 
 
 def _node_label(store, node_id):

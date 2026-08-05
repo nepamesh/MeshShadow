@@ -1,13 +1,17 @@
 """Discord alert dispatchers.
 
-Four long-running async tasks poll the database and push embeds to a
-configured channel:
+Long-running async tasks poll the database and push embeds to a configured
+channel (or, for claimed nodes, straight to the owning user's DMs):
 
 * `AnomalyAlertDispatcher` — propagation anomalies from `analysis/propagation.py`
   (ducting, fade, lost_link, new_link). Marks each anomaly notified after send.
 * `ShadowAlertDispatcher`  — newly activated dead zones and large coverage drops.
 * `BlackHoleAlertDispatcher` — newly flagged black-hole nodes from
   `analysis/blackholes.py`.
+* `RouterOfflineDispatcher` — backbone (ROUTER/ROUTER_CLIENT/ROUTER_LATE)
+  nodes that have stopped transmitting entirely, and their recovery.
+* `ClaimedNodeOfflineDispatcher` — DMs a user when a node they claimed via
+  `/claim-node` has been offline past CLAIMED_NODE_OFFLINE_HOURS.
 * `DailyDigestDispatcher`  — one summary embed per day at DISCORD_DIGEST_HOUR
   covering node health, coverage, anomaly counts, SPOFs, and low-battery nodes.
 
@@ -291,6 +295,153 @@ class BlackHoleAlertDispatcher:
             await channel.send(embed=embed)
             self.store.mark_black_hole_notified(bh["id"])
             log.info("Sent black hole alert: %s (severity %.2f)", bh["name"], severity)
+
+
+class RouterOfflineDispatcher:
+    """Posts when a backbone (ROUTER/ROUTER_CLIENT/ROUTER_LATE) node goes
+    quiet for ROUTER_OFFLINE_HOURS, and again when it comes back.
+
+    Unlike black holes (a live node's routing behavior looks wrong), this
+    catches a router that has stopped transmitting entirely — the case the
+    other detectors don't cover, since they all key off recent traffic.
+
+    Tracks the currently-offline router id set in memory, like
+    ShadowAlertDispatcher; on restart the first tick re-baselines silently
+    (no spurious "back online" posts for routers that were already down).
+    """
+
+    def __init__(self, bot: discord.Client, store: DataStore, channel_id: int, interval: int = None):
+        self.bot = bot
+        self.store = store
+        self.channel_id = channel_id
+        self.interval = interval or config.ROUTER_OFFLINE_CHECK_INTERVAL_SEC
+        self._offline_ids = None  # None until first baseline tick
+
+    async def start(self):
+        log.info("Router offline dispatcher started (threshold: %dh)", config.ROUTER_OFFLINE_HOURS)
+        while True:
+            await asyncio.sleep(self.interval)
+            try:
+                await self._check_and_alert()
+            except Exception as e:
+                log.error("Router offline dispatcher error: %s", e, exc_info=True)
+
+    def _label(self, node):
+        return node.get("short_name") or node.get("long_name") or node["node_id"]
+
+    async def _check_and_alert(self):
+        channel = self.bot.get_channel(self.channel_id)
+        if not channel:
+            return
+
+        cutoff = int(time.time()) - (config.ROUTER_OFFLINE_HOURS * 3600)
+        routers = self.store.get_router_nodes()
+        by_id = {r["node_id"]: r for r in routers}
+        current_offline = {r["node_id"] for r in routers if r["last_seen"] < cutoff}
+
+        if self._offline_ids is None:
+            # First tick after startup — baseline silently, don't alert on
+            # routers that were already down before the bot came up.
+            self._offline_ids = current_offline
+            return
+
+        newly_offline = current_offline - self._offline_ids
+        recovered = self._offline_ids - current_offline
+
+        for node_id in newly_offline:
+            node = by_id.get(node_id)
+            if not node:
+                continue
+            age_h = (int(time.time()) - node["last_seen"]) / 3600
+            embed = discord.Embed(
+                title="Router Offline",
+                description=f"**{self._label(node)}** ({node.get('role')}) hasn't been heard from in {age_h:.1f}h",
+                color=0xCC0000,
+            )
+            embed.add_field(name="Node ID", value=f"`{node_id}`", inline=True)
+            embed.set_footer(text="MeshPropagation Router Health")
+            await channel.send(embed=embed)
+            log.info("Router offline alert: %s (%s)", self._label(node), node_id)
+
+        for node_id in recovered:
+            node = self.store.get_node(node_id)
+            label = self._label(node) if node else node_id
+            embed = discord.Embed(
+                title="Router Back Online",
+                description=f"**{label}** is reporting again",
+                color=0x27AE60,
+            )
+            embed.set_footer(text="MeshPropagation Router Health")
+            await channel.send(embed=embed)
+            log.info("Router recovered: %s (%s)", label, node_id)
+
+        self._offline_ids = current_offline
+
+
+class ClaimedNodeOfflineDispatcher:
+    """DMs a Discord user when a node they claimed via `/claim-node` has been
+    offline for CLAIMED_NODE_OFFLINE_HOURS, and again when it recovers.
+
+    State (`notified_offline`) is persisted per-claim in `node_claims` so the
+    sweep is safe across restarts — it won't re-DM someone every interval,
+    only on the transition.
+    """
+
+    def __init__(self, bot: discord.Client, store: DataStore, interval: int = None):
+        self.bot = bot
+        self.store = store
+        self.interval = interval or config.CLAIMED_NODE_CHECK_INTERVAL_SEC
+
+    async def start(self):
+        log.info("Claimed-node offline dispatcher started (threshold: %dh)", config.CLAIMED_NODE_OFFLINE_HOURS)
+        while True:
+            await asyncio.sleep(self.interval)
+            try:
+                await self._check_and_notify()
+            except Exception as e:
+                log.error("Claimed-node offline dispatcher error: %s", e, exc_info=True)
+
+    async def _dm(self, discord_user_id: str, embed: discord.Embed) -> bool:
+        try:
+            user = await self.bot.fetch_user(int(discord_user_id))
+            await user.send(embed=embed)
+            return True
+        except (discord.Forbidden, discord.NotFound, discord.HTTPException, ValueError) as e:
+            log.warning("Could not DM user %s: %s", discord_user_id, e)
+            return False
+
+    async def _check_and_notify(self):
+        cutoff = int(time.time()) - (config.CLAIMED_NODE_OFFLINE_HOURS * 3600)
+        claims = self.store.get_all_claims()
+
+        for claim in claims:
+            node_id = claim["node_id"]
+            last_seen = claim.get("last_seen")
+            label = claim.get("short_name") or claim.get("long_name") or node_id
+            is_offline = last_seen is None or last_seen < cutoff
+
+            if is_offline and not claim["notified_offline"]:
+                age_h = (int(time.time()) - last_seen) / 3600 if last_seen else None
+                age_text = f"{age_h:.1f}h" if age_h is not None else "an unknown amount of time"
+                embed = discord.Embed(
+                    title="Your Node Has Gone Quiet",
+                    description=f"**{label}** hasn't been heard from in {age_text} (threshold: {config.CLAIMED_NODE_OFFLINE_HOURS}h).",
+                    color=0xCC0000,
+                )
+                embed.add_field(name="Node ID", value=f"`{node_id}`", inline=True)
+                embed.set_footer(text="MeshPropagation — you're getting this because you /claim-node'd this node")
+                if await self._dm(claim["discord_user_id"], embed):
+                    self.store.set_claim_notified(claim["discord_user_id"], node_id, True)
+
+            elif not is_offline and claim["notified_offline"]:
+                embed = discord.Embed(
+                    title="Your Node Is Back",
+                    description=f"**{label}** is reporting again.",
+                    color=0x27AE60,
+                )
+                embed.set_footer(text="MeshPropagation")
+                if await self._dm(claim["discord_user_id"], embed):
+                    self.store.set_claim_notified(claim["discord_user_id"], node_id, False)
 
 
 class DailyDigestDispatcher:

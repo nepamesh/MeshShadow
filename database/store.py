@@ -799,3 +799,62 @@ class DataStore:
             self._conn.execute("PRAGMA foreign_keys=ON")
         return len(out_of_region)
 
+    # --- Router health ---
+
+    ROUTER_ROLES = ("ROUTER", "ROUTER_CLIENT", "ROUTER_LATE")
+
+    def get_router_nodes(self):
+        """All nodes whose last known role is a routing role."""
+        placeholders = ", ".join("?" * len(self.ROUTER_ROLES))
+        return self._fetchall(
+            f"SELECT * FROM nodes WHERE role IN ({placeholders}) ORDER BY last_seen ASC",
+            self.ROUTER_ROLES,
+        )
+
+    # --- Node claims ---
+
+    def claim_node(self, discord_user_id: str, node_id: str):
+        self._execute(
+            """INSERT INTO node_claims (discord_user_id, node_id, claimed_at, notified_offline)
+               VALUES (?, ?, ?, 0)
+               ON CONFLICT(discord_user_id, node_id) DO NOTHING""",
+            (discord_user_id, node_id, int(time.time())),
+        )
+
+    def unclaim_node(self, discord_user_id: str, node_id: str):
+        cur = self._execute(
+            "DELETE FROM node_claims WHERE discord_user_id = ? AND node_id = ?",
+            (discord_user_id, node_id),
+        )
+        return cur.rowcount > 0
+
+    def get_claims_for_user(self, discord_user_id: str):
+        return self._fetchall(
+            """SELECT nc.*, n.short_name, n.long_name, n.last_seen, n.role
+               FROM node_claims nc
+               LEFT JOIN nodes n ON nc.node_id = n.node_id
+               WHERE nc.discord_user_id = ?
+               ORDER BY nc.claimed_at DESC""",
+            (discord_user_id,),
+        )
+
+    def get_claim(self, discord_user_id: str, node_id: str):
+        return self._fetchone(
+            "SELECT * FROM node_claims WHERE discord_user_id = ? AND node_id = ?",
+            (discord_user_id, node_id),
+        )
+
+    def get_all_claims(self):
+        """All claims joined with current node state, for the offline-DM sweep."""
+        return self._fetchall(
+            """SELECT nc.*, n.short_name, n.long_name, n.last_seen
+               FROM node_claims nc
+               LEFT JOIN nodes n ON nc.node_id = n.node_id"""
+        )
+
+    def set_claim_notified(self, discord_user_id: str, node_id: str, notified: bool):
+        self._execute(
+            "UPDATE node_claims SET notified_offline = ? WHERE discord_user_id = ? AND node_id = ?",
+            (1 if notified else 0, discord_user_id, node_id),
+        )
+

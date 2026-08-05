@@ -11,6 +11,8 @@ RF propagation, coverage, and shadow-zone analytics for [Meshtastic](https://mes
 - **Channel utilization alerts** — notifies Discord when a node's average channel utilization exceeds a configurable threshold.
 - **Single point of failure (SPOF) detection** — identifies articulation points whose removal would partition the mesh.
 - **Black-hole detection** — identifies nodes that receive but do not relay traffic.
+- **Router offline alerts** — flags backbone (ROUTER/ROUTER_CLIENT/ROUTER_LATE) nodes that stop transmitting entirely, and their recovery — distinct from black-hole detection, which only sees nodes that are still live but routing badly.
+- **Claimed-node DMs** — Discord users can `/claim-node` a node they own and get DM'd once it's been offline past a threshold, and again when it's back.
 - **Weather correlation** — fetches periodic weather for the mesh center and correlates with link quality.
 - **Daily digest** — scheduled Discord summary of mesh health, coverage, anomalies, and SPOF nodes.
 - **Web dashboard** — Flask + Folium maps (propagation, RF shadow, channel utilization), Matplotlib charts, served by Waitress.
@@ -92,6 +94,9 @@ All configuration is via environment variables (typically through `.env`). See `
 | `DISCORD_TOKEN` / `DISCORD_ALERT_CHANNEL_ID` | — | Discord bot (omit token to skip) |
 | `DISCORD_DIGEST_HOUR` | `8` | Hour (local time) to send the daily digest |
 | `DISCORD_BLACKHOLE_ALERTS` | `true` | Set to `false` to silence black-hole detection Discord alerts |
+| `DISCORD_ROUTER_OFFLINE_ALERTS` | `true` | Set to `false` to silence router-offline Discord alerts |
+| `ROUTER_OFFLINE_HOURS` | `6` | Hours of silence before a ROUTER/ROUTER_CLIENT/ROUTER_LATE node is flagged offline |
+| `CLAIMED_NODE_OFFLINE_HOURS` | `24` | Hours of silence before a `/claim-node`'d node DMs its owner |
 | `WEB_PORT` / `WEB_BASE_URL` | `5000` | Web dashboard |
 | `PROXY_SECRET` | — | Shared secret for the reverse-proxy gate (see [Reverse proxy](#reverse-proxy-caddy)) — generate with `openssl rand -hex 32` |
 | `NODE_ACTIVE_HOURS` | `48` | How long a node is considered "active" on the dashboard node list; independent of `STALE_NODE_DAYS` |
