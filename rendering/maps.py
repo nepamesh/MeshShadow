@@ -95,10 +95,18 @@ def generate_propagation_map(store: DataStore, hours: int = 168):
         node_a_name = escape(_get_node_label(store, link["node_a_id"]))
         node_b_name = escape(_get_node_label(store, link["node_b_id"]))
 
+        # snr/distance can be NULL — MQTT-relayed packets carry no RF stats.
+        snr_str = f"{link['avg_snr']:.1f} dB" if link["avg_snr"] is not None else "N/A"
+        snr_range_str = (
+            f" (min: {link['min_snr']:.1f}, max: {link['max_snr']:.1f})"
+            if link["min_snr"] is not None and link["max_snr"] is not None else ""
+        )
+        distance_str = f"{link['avg_distance'] * 0.621371:.1f} mi" if link["avg_distance"] is not None else "N/A"
+
         popup_html = f"""
         <b>{node_a_name} ↔ {node_b_name}</b><br>
-        SNR: {link['avg_snr']:.1f} dB (min: {link['min_snr']:.1f}, max: {link['max_snr']:.1f})<br>
-        Distance: {link['avg_distance'] * 0.621371:.1f} mi<br>
+        SNR: {snr_str}{snr_range_str}<br>
+        Distance: {distance_str}<br>
         Observations: {link['obs_count']}<br>
         Last seen: {_time_ago(link['last_seen'])}
         """
@@ -112,7 +120,7 @@ def generate_propagation_map(store: DataStore, hours: int = 168):
             weight=weight,
             opacity=0.8,
             popup=folium.Popup(popup_html, max_width=300),
-            tooltip=f"{node_a_name} ↔ {node_b_name}: {link['avg_snr']:.1f} dB",
+            tooltip=f"{node_a_name} ↔ {node_b_name}: {snr_str}",
         ).add_to(link_group)
     link_group.add_to(m)
 

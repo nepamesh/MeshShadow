@@ -15,8 +15,9 @@ RF propagation, coverage, and shadow-zone analytics for [Meshtastic](https://mes
 - **Claimed-node DMs** — Discord users can `/claim-node` a node they own and get DM'd once it's been offline past a threshold, and again when it's back.
 - **Weather correlation** — fetches periodic weather for the mesh center and correlates with link quality.
 - **Daily digest** — scheduled Discord summary of mesh health, coverage, anomalies, and SPOF nodes.
+- **Node Ledger API** — `/api/ledger` serves aggregate stats (nodes online, uptime %, alert counts, 30-day trends) to the nepamesh.com Node Ledger dashboard, CORS-scoped to that origin.
 - **Web dashboard** — Flask + Folium maps (propagation, RF shadow, channel utilization), Matplotlib charts, served by Waitress.
-- **Discord bot** — slash commands for stats and dead-zone reports, plus alert push to a channel.
+- **Discord bot** — 18 slash commands covering stats, shadow/coverage reports, black-hole and routing diagnostics, and node ownership, plus alert push to a channel and DMs (see [Discord bot commands](#discord-bot-commands)).
 
 ## Architecture
 
@@ -119,6 +120,40 @@ All configuration is via environment variables (typically through `.env`). See `
 | `THEME_BG_SECONDARY` | `#111111` | Card and nav background color |
 | `THEME_TEXT_MUTED` | `#228822` | Muted text color |
 | `THEME_BORDER` | `#1a3a1a` | Border color |
+
+## Discord bot commands
+
+All commands are slash (`/`) commands, registered on bot startup (instantly if `DISCORD_GUILD_ID` is set, otherwise up to an hour for global sync).
+
+| Command | Purpose |
+| --- | --- |
+| `/propagation` | Current RF propagation map |
+| `/history [hours]` | Network activity chart over time (default 24h) |
+| `/weather [days]` | Weather vs. RF propagation correlation (default 7d) |
+| `/node <name>` | Details for a specific node (battery, position, uptime, last seen) |
+| `/mesh` | Mesh network overview |
+| `/shadows` | Current RF shadow map overview |
+| `/coverage` | Coverage percentage and breakdown |
+| `/coverage-history [days]` | Coverage evolution over time (default 7d) |
+| `/suggest` | Optimal node-placement suggestions to fill dead zones |
+| `/deadzone <name>` | Details for a specific dead zone (partial name match) |
+| `/evaluate <lat> <lon>` | Evaluate a proposed node placement location |
+| `/blackholes` | List detected routing black holes |
+| `/blackhole <name>` | Details for a specific black hole (partial name match) |
+| `/routing <name>` | Routing health for a node (forwarding ratio, hop stats, asymmetric links) |
+| `/traceroutes` | Recent traceroute observations |
+| `/claim-node <name>` | Claim a node — DMs you if it goes offline past `CLAIMED_NODE_OFFLINE_HOURS`, and again when it's back |
+| `/unclaim-node <name>` | Stop watching a node you previously claimed |
+| `/my-nodes` | List the nodes you've claimed and their current status |
+
+Alerts pushed to `DISCORD_ALERT_CHANNEL_ID` (not user-invoked): propagation anomalies, dead-zone changes, coverage drops, black-hole detections, router-offline/recovery, channel-utilization warnings, and the daily digest.
+
+### Additional setup notes
+
+- **Claimed-node DMs require a shared server.** `/claim-node` works from any channel the bot is in, but the offline/recovery DM only succeeds if the user hasn't disabled DMs from server members — the dispatcher logs (and skips) failures rather than erroring out.
+- **Router-offline alerts depend on role data.** A node only counts as a router once MeshShadow has received a `NODEINFO` packet reporting `ROUTER`/`ROUTER_CLIENT`/`ROUTER_LATE` for it — nodes with no role recorded yet are silently excluded, not treated as offline routers.
+- **No manual DB migration needed.** New tables (`node_claims`, etc.) are created automatically via `CREATE TABLE IF NOT EXISTS` on next startup; existing installs just need to pull and restart.
+- **Ledger CORS is hardcoded** to `https://nepamesh.com` in `web/routes.py` — change the `Access-Control-Allow-Origin` header there if you fork this for another site.
 
 ## Project layout
 
