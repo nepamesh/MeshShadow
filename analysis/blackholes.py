@@ -124,7 +124,7 @@ def compute_node_routing_stats(store: DataStore, hours=24):
             packets_seen=packets_seen,
             packets_as_relay=relay_count,
             avg_hops_taken=ps["avg_hops"],
-            forwarding_ratio=round(forwarding_ratio, 3),
+            forwarding_ratio=round(forwarding_ratio, 3) if forwarding_ratio is not None else None,
             via_mqtt_pct=round(via_mqtt_pct, 1),
             asymmetric_links=asym_count.get(node_id, 0),
         )

@@ -284,10 +284,19 @@ class MQTTSubscriber:
 
             # The traceroute response comes FROM the destination back TO the origin.
             # from_id here is the destination that replied, to_id is the origin.
-            origin = to_id or "unknown"
+            if not to_id:
+                log.debug("Skipping traceroute from %s: no origin in packet", from_id)
+                return
+
+            origin = to_id
             destination = from_id
             hop_count = len(route_forward)
             completed = hop_count > 0
+
+            # origin_id/destination_id are FK'd to nodes; the origin may not
+            # have been seen yet (destination is upserted for every packet
+            # in the caller, but the origin only sent the traceroute request).
+            self.store.upsert_node(origin, last_seen=rx_time)
 
             self.store.insert_traceroute(
                 timestamp=rx_time,
