@@ -98,6 +98,31 @@ ROUTER_OFFLINE_CHECK_INTERVAL_SEC = int(os.getenv("ROUTER_OFFLINE_CHECK_SEC", "6
 CLAIMED_NODE_OFFLINE_HOURS = int(os.getenv("CLAIMED_NODE_OFFLINE_HOURS", "24"))
 CLAIMED_NODE_CHECK_INTERVAL_SEC = int(os.getenv("CLAIMED_NODE_CHECK_SEC", "900"))  # 15 minutes
 
+# Proactive router health — battery/voltage trending badly, or signal quality
+# drifting below a router's own historical baseline. Separate from the hard
+# offline check: these catch a router on its way to trouble, not already gone.
+DISCORD_ROUTER_HEALTH_ALERTS = os.getenv("DISCORD_ROUTER_HEALTH_ALERTS", "true").lower() not in ("false", "0", "no")
+ROUTER_HEALTH_CHECK_INTERVAL_SEC = int(os.getenv("ROUTER_HEALTH_CHECK_SEC", "1800"))  # 30 minutes
+
+# Battery: flag a router if its battery drops this many percentage points
+# within ROUTER_BATTERY_WINDOW_HOURS (fast drain), or swings by more than
+# ROUTER_BATTERY_JITTER_STDDEV points of stddev within that window (erratic/
+# "wonky" readings), or its latest voltage is below ROUTER_BATTERY_VOLTAGE_SAG.
+ROUTER_BATTERY_WINDOW_HOURS = int(os.getenv("ROUTER_BATTERY_WINDOW_HOURS", "24"))
+ROUTER_BATTERY_DRAIN_PCT = float(os.getenv("ROUTER_BATTERY_DRAIN_PCT", "20.0"))
+ROUTER_BATTERY_JITTER_STDDEV = float(os.getenv("ROUTER_BATTERY_JITTER_STDDEV", "10.0"))
+ROUTER_BATTERY_VOLTAGE_SAG = float(os.getenv("ROUTER_BATTERY_VOLTAGE_SAG", "3.4"))
+
+# Signal: flag a router if its recent aggregate link SNR (across every link
+# it appears in) has dropped ROUTER_SNR_DROP_DB or more below its own
+# baseline average over ROUTER_SNR_BASELINE_DAYS, given enough observations
+# in both windows to be meaningful.
+ROUTER_SNR_BASELINE_DAYS = int(os.getenv("ROUTER_SNR_BASELINE_DAYS", "14"))
+ROUTER_SNR_RECENT_HOURS = int(os.getenv("ROUTER_SNR_RECENT_HOURS", "24"))
+ROUTER_SNR_DROP_DB = float(os.getenv("ROUTER_SNR_DROP_DB", "6.0"))
+ROUTER_SNR_MIN_BASELINE_OBS = int(os.getenv("ROUTER_SNR_MIN_BASELINE_OBS", "20"))
+ROUTER_SNR_MIN_RECENT_OBS = int(os.getenv("ROUTER_SNR_MIN_RECENT_OBS", "5"))
+
 # Node retention window
 NODE_ACTIVE_HOURS = int(os.getenv("NODE_ACTIVE_HOURS", "48"))
 

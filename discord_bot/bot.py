@@ -20,7 +20,8 @@ from database.store import DataStore
 from .commands import setup_commands
 from .alerts import (
     AnomalyAlertDispatcher, ShadowAlertDispatcher, BlackHoleAlertDispatcher,
-    RouterOfflineDispatcher, ClaimedNodeOfflineDispatcher, DailyDigestDispatcher,
+    RouterOfflineDispatcher, RouterHealthDispatcher, ClaimedNodeOfflineDispatcher,
+    DailyDigestDispatcher,
 )
 
 log = logging.getLogger(__name__)
@@ -82,6 +83,13 @@ def create_bot(store: DataStore, alert_channel_id: int = 0, guild_id: str = "",
                 log.info("Router offline alerts enabled for channel %d", alert_channel_id)
             else:
                 log.info("Router offline alerts disabled (DISCORD_ROUTER_OFFLINE_ALERTS=false)")
+
+            if config.DISCORD_ROUTER_HEALTH_ALERTS:
+                router_health_dispatcher = RouterHealthDispatcher(bot, store, alert_channel_id)
+                asyncio.create_task(router_health_dispatcher.start())
+                log.info("Router health alerts enabled for channel %d", alert_channel_id)
+            else:
+                log.info("Router health alerts disabled (DISCORD_ROUTER_HEALTH_ALERTS=false)")
 
             digest_dispatcher = DailyDigestDispatcher(bot, store, alert_channel_id)
             asyncio.create_task(digest_dispatcher.start())

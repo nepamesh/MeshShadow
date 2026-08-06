@@ -10,10 +10,14 @@ channel (or, for claimed nodes, straight to the owning user's DMs):
   `analysis/blackholes.py`.
 * `RouterOfflineDispatcher` — backbone (ROUTER/ROUTER_CLIENT/ROUTER_LATE)
   nodes that have stopped transmitting entirely, and their recovery.
+* `RouterHealthDispatcher` — proactive warnings for routers still online but
+  trending badly: fast/erratic battery, voltage sag, or link SNR drifting
+  below the router's own historical baseline. See `analysis/router_health.py`.
 * `ClaimedNodeOfflineDispatcher` — DMs a user when a node they claimed via
   `/claim-node` has been offline past CLAIMED_NODE_OFFLINE_HOURS.
 * `DailyDigestDispatcher`  — one summary embed per day at DISCORD_DIGEST_HOUR
-  covering node health, coverage, anomaly counts, SPOFs, and low-battery nodes.
+  covering node health, coverage, anomaly counts, SPOFs, low-battery nodes,
+  and router health warnings.
 
 Each dispatcher runs forever in its own asyncio task, sleeps `interval`
 seconds between checks, and swallows exceptions so a transient DB or Discord
@@ -30,6 +34,7 @@ import discord
 import config
 
 from analysis.spof import find_spof_nodes
+from analysis.router_health import check_router_health
 from database.store import DataStore
 
 log = logging.getLogger(__name__)
@@ -378,6 +383,89 @@ class RouterOfflineDispatcher:
         self._offline_ids = current_offline
 
 
+ROUTER_HEALTH_COLORS = {
+    "fast_drain": 0xE67E22,
+    "erratic_battery": 0xE67E22,
+    "low_voltage": 0xE67E22,
+    "signal_drop": 0xF1C40F,
+}
+
+ROUTER_HEALTH_LABELS = {
+    "fast_drain": "Fast Battery Drain",
+    "erratic_battery": "Erratic Battery Readings",
+    "low_voltage": "Voltage Sag",
+    "signal_drop": "Signal Drift Below Baseline",
+}
+
+
+class RouterHealthDispatcher:
+    """Proactive router-health warnings: bad battery/voltage trends or link
+    SNR drifting below a router's own historical baseline.
+
+    A step below RouterOfflineDispatcher in urgency, distinct color/title so
+    it doesn't read like a hard outage. Same in-memory diff pattern: tracks
+    the currently-flagged (node_id, issue) set, posts on new findings and on
+    resolution, baselines silently on the first tick after startup.
+    """
+
+    def __init__(self, bot: discord.Client, store: DataStore, channel_id: int, interval: int = None):
+        self.bot = bot
+        self.store = store
+        self.channel_id = channel_id
+        self.interval = interval or config.ROUTER_HEALTH_CHECK_INTERVAL_SEC
+        self._flagged = None  # None until first baseline tick; maps (node_id, issue) -> detail
+
+    async def start(self):
+        log.info("Router health dispatcher started")
+        while True:
+            await asyncio.sleep(self.interval)
+            try:
+                await self._check_and_alert()
+            except Exception as e:
+                log.error("Router health dispatcher error: %s", e, exc_info=True)
+
+    async def _check_and_alert(self):
+        channel = self.bot.get_channel(self.channel_id)
+        if not channel:
+            return
+
+        findings = await asyncio.to_thread(check_router_health, self.store)
+        current = {(f["node_id"], f["issue"]): f for f in findings}
+
+        if self._flagged is None:
+            self._flagged = current
+            return
+
+        new_keys = set(current) - set(self._flagged)
+        resolved_keys = set(self._flagged) - set(current)
+
+        for key in new_keys:
+            f = current[key]
+            embed = discord.Embed(
+                title=f"Router Health Warning: {ROUTER_HEALTH_LABELS.get(f['issue'], f['issue'])}",
+                description=f"**{f['label']}**  {f['detail']}",
+                color=ROUTER_HEALTH_COLORS.get(f["issue"], 0xF1C40F),
+            )
+            embed.add_field(name="Node ID", value=f"`{f['node_id']}`", inline=True)
+            embed.set_footer(text="MeshPropagation Router Health")
+            await channel.send(embed=embed)
+            log.info("Router health warning: %s on %s", f["issue"], f["node_id"])
+
+        for key in resolved_keys:
+            node_id, issue = key
+            f = self._flagged[key]
+            embed = discord.Embed(
+                title=f"Router Health Recovered: {ROUTER_HEALTH_LABELS.get(issue, issue)}",
+                description=f"**{f['label']}** is back within normal range.",
+                color=0x27AE60,
+            )
+            embed.set_footer(text="MeshPropagation Router Health")
+            await channel.send(embed=embed)
+            log.info("Router health recovered: %s on %s", issue, node_id)
+
+        self._flagged = current
+
+
 class ClaimedNodeOfflineDispatcher:
     """DMs a Discord user when a node they claimed via `/claim-node` has been
     offline for CLAIMED_NODE_OFFLINE_HOURS, and again when it recovers.
@@ -533,6 +621,11 @@ class DailyDigestDispatcher:
         # Black holes
         black_holes = store.get_black_holes(active_only=True)
 
+        # Router health warnings
+        router_health = await asyncio.to_thread(check_router_health, store)
+        health_lines = [f"`{f['label']}`: {ROUTER_HEALTH_LABELS.get(f['issue'], f['issue'])}"
+                        for f in router_health[:8]]
+
         embed = discord.Embed(
             title=f"{config.SITE_ORG_NAME} Daily Digest — {now.strftime('%A, %B %-d')}",
             color=0x0066CC,
@@ -569,6 +662,12 @@ class DailyDigestDispatcher:
             embed.add_field(
                 name="Low Battery (< 20%)",
                 value="\n".join(batt_lines),
+                inline=False,
+            )
+        if health_lines:
+            embed.add_field(
+                name=f"Router Health Warnings ({len(router_health)})",
+                value="\n".join(health_lines),
                 inline=False,
             )
 

@@ -204,6 +204,16 @@ class DataStore:
             (cutoff,),
         )
 
+    def get_node_snr_stats(self, node_id: str, hours: int):
+        """Aggregate SNR across every link this node appears in (either side), over a window."""
+        cutoff = int(time.time()) - (hours * 3600)
+        return self._fetchone(
+            """SELECT AVG(snr) as avg_snr, COUNT(*) as obs_count
+               FROM link_observations
+               WHERE (node_a_id = ? OR node_b_id = ?) AND timestamp > ? AND snr IS NOT NULL""",
+            (node_id, node_id, cutoff),
+        )
+
     def get_link_stats(self, node_a: str, node_b: str):
         return self._fetchone(
             """SELECT AVG(snr) as avg_snr, MIN(snr) as min_snr, MAX(snr) as max_snr,

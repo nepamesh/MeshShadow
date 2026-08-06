@@ -12,6 +12,7 @@ RF propagation, coverage, and shadow-zone analytics for [Meshtastic](https://mes
 - **Single point of failure (SPOF) detection** — identifies articulation points whose removal would partition the mesh.
 - **Black-hole detection** — identifies nodes that receive but do not relay traffic.
 - **Router offline alerts** — flags backbone (ROUTER/ROUTER_CLIENT/ROUTER_LATE) nodes that stop transmitting entirely, and their recovery — distinct from black-hole detection, which only sees nodes that are still live but routing badly.
+- **Proactive router health warnings** — a step before offline: flags a router with fast/erratic battery drain, voltage sag, or link SNR drifting below its own historical baseline, so a router trending toward trouble gets caught before it goes dark. Posted in real time and rolled into the daily digest.
 - **Airborne node filtering** — position reports above `AIRBORNE_ALTITUDE_M` (aircraft-mounted nodes, planes passing overhead) are flagged and excluded from the map and shadow/coverage calculations, without deleting their history.
 - **Claimed-node DMs** — Discord users can `/claim-node` a node they own and get DM'd once it's been offline past a threshold, and again when it's back.
 - **Weather correlation** — fetches periodic weather for the mesh center and correlates with link quality.
@@ -99,6 +100,11 @@ All configuration is via environment variables (typically through `.env`). See `
 | `DISCORD_BLACKHOLE_ALERTS` | `true` | Set to `false` to silence black-hole detection Discord alerts |
 | `DISCORD_ROUTER_OFFLINE_ALERTS` | `true` | Set to `false` to silence router-offline Discord alerts |
 | `ROUTER_OFFLINE_HOURS` | `6` | Hours of silence before a ROUTER/ROUTER_CLIENT/ROUTER_LATE node is flagged offline |
+| `DISCORD_ROUTER_HEALTH_ALERTS` | `true` | Set to `false` to silence proactive router health warnings (battery/voltage/signal trends) |
+| `ROUTER_BATTERY_DRAIN_PCT` / `ROUTER_BATTERY_WINDOW_HOURS` | `20.0` / `24` | Flag a router if its battery drops this many points within this window |
+| `ROUTER_BATTERY_JITTER_STDDEV` | `10.0` | Flag a router if its battery readings swing (stddev) by this many points within the same window, instead of draining smoothly |
+| `ROUTER_BATTERY_VOLTAGE_SAG` | `3.4` | Flag a router whose latest voltage reading is below this |
+| `ROUTER_SNR_DROP_DB` / `ROUTER_SNR_BASELINE_DAYS` | `6.0` / `14` | Flag a router if its recent aggregate link SNR has dropped this many dB below its own N-day baseline |
 | `CLAIMED_NODE_OFFLINE_HOURS` | `24` | Hours of silence before a `/claim-node`'d node DMs its owner |
 | `WEB_PORT` / `WEB_BASE_URL` | `5000` | Web dashboard |
 | `PROXY_SECRET` | — | Shared secret for the reverse-proxy gate (see [Reverse proxy](#reverse-proxy-caddy)) — generate with `openssl rand -hex 32` |
