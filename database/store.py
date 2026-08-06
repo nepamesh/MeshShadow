@@ -954,6 +954,13 @@ class DataStore:
             (discord_user_id, node_id),
         )
 
+    def get_claims_for_node(self, node_id: str):
+        """Every discord_user_id that has claimed a given node."""
+        return self._fetchall(
+            "SELECT discord_user_id FROM node_claims WHERE node_id = ?",
+            (node_id,),
+        )
+
     def get_all_claims(self):
         """All claims joined with current node state, for the offline-DM sweep."""
         return self._fetchall(

@@ -13,6 +13,7 @@ channel (or, for claimed nodes, straight to the owning user's DMs):
 * `RouterHealthDispatcher` — proactive warnings for routers still online but
   trending badly: fast/erratic battery, voltage sag, or link SNR drifting
   below the router's own historical baseline. See `analysis/router_health.py`.
+  Also DMs anyone who's `/claim-node`'d the affected node.
 * `ClaimedNodeOfflineDispatcher` — DMs a user when a node they claimed via
   `/claim-node` has been offline past CLAIMED_NODE_OFFLINE_HOURS.
 * `DailyDigestDispatcher`  — one summary embed per day at DISCORD_DIGEST_HOUR
@@ -38,6 +39,19 @@ from analysis.router_health import check_router_health
 from database.store import DataStore
 
 log = logging.getLogger(__name__)
+
+
+async def dm_user(bot: discord.Client, discord_user_id: str, embed: discord.Embed) -> bool:
+    """Best-effort DM; logs and returns False rather than raising if it can't be delivered
+    (DMs closed, user left the server, bad id, etc)."""
+    try:
+        user = await bot.fetch_user(int(discord_user_id))
+        await user.send(embed=embed)
+        return True
+    except (discord.Forbidden, discord.NotFound, discord.HTTPException, ValueError) as e:
+        log.warning("Could not DM user %s: %s", discord_user_id, e)
+        return False
+
 
 EVENT_COLORS = {
     "ducting": 0x00CC00,
@@ -406,6 +420,9 @@ class RouterHealthDispatcher:
     it doesn't read like a hard outage. Same in-memory diff pattern: tracks
     the currently-flagged (node_id, issue) set, posts on new findings and on
     resolution, baselines silently on the first tick after startup.
+
+    Also DMs anyone who has `/claim-node`'d the affected node, in addition to
+    the channel post, on both the warning and its resolution.
     """
 
     def __init__(self, bot: discord.Client, store: DataStore, channel_id: int, interval: int = None):
@@ -423,6 +440,11 @@ class RouterHealthDispatcher:
                 await self._check_and_alert()
             except Exception as e:
                 log.error("Router health dispatcher error: %s", e, exc_info=True)
+
+    async def _dm_claimants(self, node_id: str, embed: discord.Embed):
+        claims = await asyncio.to_thread(self.store.get_claims_for_node, node_id)
+        for claim in claims:
+            await dm_user(self.bot, claim["discord_user_id"], embed)
 
     async def _check_and_alert(self):
         channel = self.bot.get_channel(self.channel_id)
@@ -449,6 +471,7 @@ class RouterHealthDispatcher:
             embed.add_field(name="Node ID", value=f"`{f['node_id']}`", inline=True)
             embed.set_footer(text="MeshPropagation Router Health")
             await channel.send(embed=embed)
+            await self._dm_claimants(f["node_id"], embed)
             log.info("Router health warning: %s on %s", f["issue"], f["node_id"])
 
         for key in resolved_keys:
@@ -461,6 +484,7 @@ class RouterHealthDispatcher:
             )
             embed.set_footer(text="MeshPropagation Router Health")
             await channel.send(embed=embed)
+            await self._dm_claimants(node_id, embed)
             log.info("Router health recovered: %s on %s", issue, node_id)
 
         self._flagged = current
@@ -489,15 +513,6 @@ class ClaimedNodeOfflineDispatcher:
             except Exception as e:
                 log.error("Claimed-node offline dispatcher error: %s", e, exc_info=True)
 
-    async def _dm(self, discord_user_id: str, embed: discord.Embed) -> bool:
-        try:
-            user = await self.bot.fetch_user(int(discord_user_id))
-            await user.send(embed=embed)
-            return True
-        except (discord.Forbidden, discord.NotFound, discord.HTTPException, ValueError) as e:
-            log.warning("Could not DM user %s: %s", discord_user_id, e)
-            return False
-
     async def _check_and_notify(self):
         cutoff = int(time.time()) - (config.CLAIMED_NODE_OFFLINE_HOURS * 3600)
         claims = self.store.get_all_claims()
@@ -518,7 +533,7 @@ class ClaimedNodeOfflineDispatcher:
                 )
                 embed.add_field(name="Node ID", value=f"`{node_id}`", inline=True)
                 embed.set_footer(text="MeshPropagation — you're getting this because you /claim-node'd this node")
-                if await self._dm(claim["discord_user_id"], embed):
+                if await dm_user(self.bot, claim["discord_user_id"], embed):
                     self.store.set_claim_notified(claim["discord_user_id"], node_id, True)
 
             elif not is_offline and claim["notified_offline"]:
@@ -528,7 +543,7 @@ class ClaimedNodeOfflineDispatcher:
                     color=0x27AE60,
                 )
                 embed.set_footer(text="MeshPropagation")
-                if await self._dm(claim["discord_user_id"], embed):
+                if await dm_user(self.bot, claim["discord_user_id"], embed):
                     self.store.set_claim_notified(claim["discord_user_id"], node_id, False)
 
 
