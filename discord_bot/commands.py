@@ -525,15 +525,7 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
     async def routing(interaction: discord.Interaction, name: str):
         await interaction.response.defer()
 
-        node_data = store.get_node(name)
-        if not node_data:
-            all_nodes = store.get_all_nodes()
-            for n in all_nodes:
-                if (n.get("short_name", "").lower() == name.lower() or
-                        n.get("long_name", "").lower() == name.lower()):
-                    node_data = n
-                    break
-
+        node_data = _find_node(store, name)
         if not node_data:
             await interaction.followup.send(f"Node '{name}' not found.")
             return
@@ -744,8 +736,8 @@ def _find_node(store: DataStore, name: str):
     if node_data:
         return node_data
     for n in store.get_all_nodes():
-        if (n.get("short_name", "").lower() == name.lower() or
-                n.get("long_name", "").lower() == name.lower()):
+        if ((n.get("short_name") or "").lower() == name.lower() or
+                (n.get("long_name") or "").lower() == name.lower()):
             return n
     return None
 
