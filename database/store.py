@@ -29,7 +29,7 @@ class DataStore:
     _NODES_COLUMNS = frozenset({
         "short_name", "long_name", "hw_model", "latitude", "longitude",
         "altitude", "last_seen", "battery_level", "voltage", "channel_util",
-        "air_util_tx", "uptime_seconds", "role",
+        "air_util_tx", "uptime_seconds", "role", "is_airborne",
     })
     _DEAD_ZONES_COLUMNS = frozenset({
         "name", "center_lat", "center_lon", "area_km2", "cell_count",
@@ -61,8 +61,24 @@ class DataStore:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._conn.executescript(SCHEMA_SQL)
+        self._migrate()
         self._conn.commit()
         log.info("Database initialized at %s", self.db_path)
+
+    def _migrate(self):
+        """Add columns to tables that already existed before they were introduced.
+
+        `CREATE TABLE IF NOT EXISTS` in SCHEMA_SQL is a no-op on a table that's
+        already there, so new columns on existing tables need an explicit,
+        idempotent ALTER TABLE here.
+        """
+        existing = {row["name"] for row in self._conn.execute("PRAGMA table_info(nodes)")}
+        if "is_airborne" not in existing:
+            self._conn.execute("ALTER TABLE nodes ADD COLUMN is_airborne INTEGER NOT NULL DEFAULT 0")
+            cur = self._conn.execute(
+                "UPDATE nodes SET is_airborne = 1 WHERE altitude > ?", (config.AIRBORNE_ALTITUDE_M,))
+            log.info("Migrated: added nodes.is_airborne, backfilled %d existing node(s) above %.0fm",
+                      cur.rowcount, config.AIRBORNE_ALTITUDE_M)
 
     def _execute(self, sql, params=()):
         with self._lock:
@@ -343,21 +359,27 @@ class DataStore:
 
     # --- Shadow Mapper: Nodes with Positions ---
 
-    def get_nodes_with_positions(self, max_age_hours: int = None):
+    def get_nodes_with_positions(self, max_age_hours: int = None, include_airborne: bool = False):
         """Positioned nodes seen within the active window (default config.NODE_ACTIVE_HOURS).
 
         Pass max_age_hours=0 to include every positioned node regardless of age.
+        Excludes nodes flagged `is_airborne` (aircraft-mounted or transient
+        high-altitude contacts) unless include_airborne=True — this is the
+        node source for coverage/shadow-grid recalculation and the shadow
+        map, so a plane passing overhead shouldn't skew ground coverage.
         """
+        airborne_clause = "" if include_airborne else "AND is_airborne = 0 "
         hours = max_age_hours if max_age_hours is not None else config.NODE_ACTIVE_HOURS
         if hours and hours > 0:
             cutoff = int(time.time()) - (hours * 3600)
             return self._fetchall(
                 "SELECT * FROM nodes WHERE latitude IS NOT NULL AND longitude IS NOT NULL "
-                "AND last_seen > ? ORDER BY last_seen DESC",
+                f"{airborne_clause}AND last_seen > ? ORDER BY last_seen DESC",
                 (cutoff,),
             )
         return self._fetchall(
-            "SELECT * FROM nodes WHERE latitude IS NOT NULL AND longitude IS NOT NULL ORDER BY last_seen DESC"
+            f"SELECT * FROM nodes WHERE latitude IS NOT NULL AND longitude IS NOT NULL {airborne_clause}"
+            "ORDER BY last_seen DESC"
         )
 
     def get_link_count_for_node(self, node_id: str, hours: int = 24):

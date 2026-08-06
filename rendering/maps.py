@@ -55,10 +55,12 @@ def _time_ago(ts):
 
 def generate_propagation_map(store: DataStore, hours: int = 168):
     """Generate a Folium HTML map showing nodes and link quality."""
-    nodes = store.get_all_nodes()
+    all_nodes = store.get_all_nodes()
+    airborne_ids = {n["node_id"] for n in all_nodes if n["is_airborne"]}
     active_cutoff = int(time.time()) - (hours * 3600)
-    nodes = [n for n in nodes if (n["last_seen"] or 0) > active_cutoff]
-    links = store.get_latest_links(hours)
+    nodes = [n for n in all_nodes if (n["last_seen"] or 0) > active_cutoff and not n["is_airborne"]]
+    links = [l for l in store.get_latest_links(hours)
+             if l["node_a_id"] not in airborne_ids and l["node_b_id"] not in airborne_ids]
 
     # Find center of all nodes with positions
     positioned = [n for n in nodes if n["latitude"] and n["longitude"]]

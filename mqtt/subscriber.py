@@ -24,6 +24,7 @@ import paho.mqtt.client as mqtt
 from meshtastic.protobuf import mqtt_pb2, mesh_pb2, portnums_pb2, telemetry_pb2
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+import config
 from database.store import DataStore
 
 log = logging.getLogger(__name__)
@@ -185,9 +186,15 @@ class MQTTSubscriber:
         lon = pos.longitude_i * 1e-7
         if lat == 0.0 and lon == 0.0:
             return
+        if haversine(lat, lon, config.MESH_CENTER_LAT, config.MESH_CENTER_LON) > config.MESH_REGION_RADIUS_KM:
+            log.debug("Dropping out-of-region position from %s: %.6f, %.6f", from_id, lat, lon)
+            return
         alt = pos.altitude if pos.altitude else None
         ts = pos.time if pos.time else rx_time
         self.store.insert_position(from_id, ts, lat, lon, alt, pos.sats_in_view or None)
+        if alt is not None and alt > config.AIRBORNE_ALTITUDE_M:
+            self.store.upsert_node(from_id, is_airborne=1, last_seen=ts)
+            log.info("Flagged %s as airborne (altitude %.0fm)", from_id, alt)
         log.debug("Position from %s: %.6f, %.6f alt=%s", from_id, lat, lon, alt)
 
     def _handle_telemetry(self, from_id, payload, rx_time):

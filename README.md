@@ -12,6 +12,7 @@ RF propagation, coverage, and shadow-zone analytics for [Meshtastic](https://mes
 - **Single point of failure (SPOF) detection** — identifies articulation points whose removal would partition the mesh.
 - **Black-hole detection** — identifies nodes that receive but do not relay traffic.
 - **Router offline alerts** — flags backbone (ROUTER/ROUTER_CLIENT/ROUTER_LATE) nodes that stop transmitting entirely, and their recovery — distinct from black-hole detection, which only sees nodes that are still live but routing badly.
+- **Airborne node filtering** — position reports above `AIRBORNE_ALTITUDE_M` (aircraft-mounted nodes, planes passing overhead) are flagged and excluded from the map and shadow/coverage calculations, without deleting their history.
 - **Claimed-node DMs** — Discord users can `/claim-node` a node they own and get DM'd once it's been offline past a threshold, and again when it's back.
 - **Weather correlation** — fetches periodic weather for the mesh center and correlates with link quality.
 - **Daily digest** — scheduled Discord summary of mesh health, coverage, anomalies, and SPOF nodes.
@@ -91,6 +92,7 @@ All configuration is via environment variables (typically through `.env`). See `
 | `MESH_KEY` | Meshtastic public key | Base64 PSK |
 | `MESH_CENTER_LAT` / `MESH_CENTER_LON` | — | Center point for grid + weather |
 | `MESH_REGION_RADIUS_KM` | `200` | Reject position reports from nodes further than this from the mesh center; out-of-region nodes are also purged hourly |
+| `AIRBORNE_ALTITUDE_M` | `2000` | Position reports above this altitude (meters) flag the node as airborne — excluded from the map and shadow/coverage calculations, kept in the DB for historic lookup |
 | `STALE_NODE_DAYS` | `7` | Nodes (and all their time-series data) not heard from in this many days are deleted by the hourly maintenance job |
 | `DISCORD_TOKEN` / `DISCORD_ALERT_CHANNEL_ID` | — | Discord bot (omit token to skip) |
 | `DISCORD_DIGEST_HOUR` | `8` | Hour (local time) to send the daily digest |
@@ -175,6 +177,8 @@ generate_docs.py  Builds the setup-guide PDF
 SQLite (WAL mode) at `DB_PATH` (default `data/meshprop.db`). The Docker setup mounts a named volume `meshprop-data` at `/app/data`. The `data/` directory is gitignored.
 
 An hourly maintenance job prunes all time-series data (positions, link observations, device metrics, weather, traceroutes) older than `STALE_NODE_DAYS` (default 7 days), and removes any nodes that have not been heard from within that window. Packet observations are pruned on a shorter 72-hour cycle. Nodes outside `MESH_REGION_RADIUS_KM` are also removed each hour; incoming position reports beyond that radius are silently dropped at ingest.
+
+Position reports above `AIRBORNE_ALTITUDE_M` flag the reporting node `is_airborne` instead of being dropped — it stays in the DB (so `/node/<id>` and historic queries still work), but is excluded from `get_nodes_with_positions()`, the shared node source for coverage/shadow-grid recalculation, the shadow map, and the propagation map's node markers and links. New installs get the column from `database/schema.py`; existing databases get it via an idempotent `ALTER TABLE` in `DataStore._migrate()`, which also backfills the flag for any node already over the altitude threshold at migration time.
 
 ## Reverse proxy (Caddy)
 

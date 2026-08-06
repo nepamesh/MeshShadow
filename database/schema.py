@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS nodes (
     channel_util    REAL,
     air_util_tx     REAL,
     uptime_seconds  INTEGER,
-    role            TEXT
+    role            TEXT,
+    is_airborne     INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS positions (

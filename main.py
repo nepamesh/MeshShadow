@@ -124,7 +124,10 @@ def run_maintenance(store: DataStore):
             store.cleanup_old_nodes(max_age_hours=retention_hours)
             store.cleanup_old_timeseries(max_age_hours=retention_hours)
             store.cleanup_old_packets(max_age_hours=72)
-            log.info("Maintenance: pruned all data >%dd, packets >72h", config.STALE_NODE_DAYS)
+            purged = store.cleanup_out_of_region(
+                config.MESH_CENTER_LAT, config.MESH_CENTER_LON, config.MESH_REGION_RADIUS_KM)
+            log.info("Maintenance: pruned all data >%dd, packets >72h, %d out-of-region nodes",
+                     config.STALE_NODE_DAYS, purged)
         except Exception as e:
             log.error("Maintenance error: %s", e, exc_info=True)
 

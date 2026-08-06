@@ -21,6 +21,13 @@ MESH_CENTER_LON = float(os.getenv("MESH_CENTER_LON", "-75.9"))
 # Filters out nodes from the national MQTT channel that are not local.
 MESH_REGION_RADIUS_KM = float(os.getenv("MESH_REGION_RADIUS_KM", "200"))
 
+# A position report above this altitude is treated as an aircraft-mounted
+# node (or a plane passing overhead), not ground coverage. Flagged nodes are
+# excluded from the map and shadow/coverage calculations, but kept in the DB
+# for historic lookup. NEPA terrain tops out well under 1km; 2000m leaves
+# generous margin above any legitimate mountaintop repeater.
+AIRBORNE_ALTITUDE_M = float(os.getenv("AIRBORNE_ALTITUDE_M", "2000"))
+
 # Weather
 WEATHER_INTERVAL_SEC = int(os.getenv("WEATHER_INTERVAL_SEC", "900"))  # 15 minutes
 
