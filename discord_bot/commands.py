@@ -700,6 +700,43 @@ def setup_commands(tree: app_commands.CommandTree, store: DataStore, web_base_ur
         embed.set_footer(text=f"DM alert after {config.CLAIMED_NODE_OFFLINE_HOURS}h offline")
         await interaction.followup.send(embed=embed)
 
+    @tree.command(name="claims", description="List every claimed node and who's watching it")
+    async def claims(interaction: discord.Interaction):
+        await interaction.response.defer()
+        claims = store.get_all_claims()
+        if not claims:
+            await interaction.followup.send("No nodes have been claimed yet. Use `/claim-node <name>` to watch one.")
+            return
+
+        now = int(time.time())
+        lines = []
+        for c in sorted(claims, key=lambda c: c["claimed_at"], reverse=True):
+            label = c.get("short_name") or c.get("long_name") or c["node_id"]
+            user = interaction.client.get_user(int(c["discord_user_id"]))
+            if user is None:
+                try:
+                    user = await interaction.client.fetch_user(int(c["discord_user_id"]))
+                except (discord.NotFound, discord.HTTPException):
+                    user = None
+            claimant = user.mention if user else f"`{c['discord_user_id']}`"
+
+            if c.get("last_seen") is None:
+                status = "never seen"
+            else:
+                age_h = (now - c["last_seen"]) / 3600
+                status = f"offline {age_h:.1f}h" if age_h >= config.CLAIMED_NODE_OFFLINE_HOURS else f"seen {age_h:.1f}h ago"
+
+            lines.append(f"`{label}` (`{c['node_id']}`) — {claimant}, {status}")
+
+        embed = discord.Embed(
+            title=f"Claimed Nodes ({len(claims)})",
+            description="\n".join(lines[:25]),
+            color=0x4ECDC4,
+        )
+        if len(lines) > 25:
+            embed.set_footer(text=f"+{len(lines) - 25} more not shown")
+        await interaction.followup.send(embed=embed)
+
 
 def _find_node(store: DataStore, name: str):
     """Look up a node by ID (exact) or by short/long name (case-insensitive)."""

@@ -18,7 +18,7 @@ RF propagation, coverage, and shadow-zone analytics for [Meshtastic](https://mes
 - **Daily digest** — scheduled Discord summary of mesh health, coverage, anomalies, and SPOF nodes.
 - **Node Ledger API** — `/api/ledger` serves aggregate stats (nodes online, uptime %, alert counts, 30-day trends) to the nepamesh.com Node Ledger dashboard, CORS-scoped to that origin.
 - **Web dashboard** — Flask + Folium maps (propagation, RF shadow, channel utilization), Matplotlib charts, served by Waitress.
-- **Discord bot** — 18 slash commands covering stats, shadow/coverage reports, black-hole and routing diagnostics, and node ownership, plus alert push to a channel and DMs (see [Discord bot commands](#discord-bot-commands)).
+- **Discord bot** — 19 slash commands covering stats, shadow/coverage reports, black-hole and routing diagnostics, and node ownership, plus alert push to a channel and DMs (see [Discord bot commands](#discord-bot-commands)).
 
 ## Architecture
 
@@ -147,6 +147,7 @@ All commands are slash (`/`) commands, registered on bot startup (instantly if `
 | `/claim-node <name>` | Claim a node — DMs you if it goes offline past `CLAIMED_NODE_OFFLINE_HOURS`, and again when it's back |
 | `/unclaim-node <name>` | Stop watching a node you previously claimed |
 | `/my-nodes` | List the nodes you've claimed and their current status |
+| `/claims` | List every claimed node across all users, who claimed it, and its current status |
 
 Alerts pushed to `DISCORD_ALERT_CHANNEL_ID` (not user-invoked): propagation anomalies, dead-zone changes, coverage drops, black-hole detections, router-offline/recovery, channel-utilization warnings, and the daily digest.
 
