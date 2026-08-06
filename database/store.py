@@ -833,9 +833,31 @@ class DataStore:
         self._execute("DELETE FROM packet_observations WHERE timestamp < ?", (cutoff,))
 
     def cleanup_old_nodes(self, max_age_hours=24):
-        """Trim stale nodes not seen within max_age_hours (see config.STALE_NODE_DAYS)."""
+        """Trim stale nodes not seen within max_age_hours (see config.STALE_NODE_DAYS).
+
+        Deletes dependent rows first — nodes.node_id is referenced by FK from
+        several tables, so a bare DELETE FROM nodes throws IntegrityError as
+        soon as any of them still has rows for a stale node (same shape as
+        cleanup_out_of_region).
+        """
         cutoff = int(time.time()) - (max_age_hours * 3600)
-        self._execute("DELETE FROM nodes WHERE last_seen < ?", (cutoff,))
+        stale = "SELECT node_id FROM nodes WHERE last_seen < ?"
+        with self._lock:
+            self._conn.execute("PRAGMA foreign_keys=OFF")
+            self._conn.execute(f"DELETE FROM positions WHERE node_id IN ({stale})", (cutoff,))
+            self._conn.execute(f"DELETE FROM device_metrics WHERE node_id IN ({stale})", (cutoff,))
+            self._conn.execute(f"DELETE FROM packet_observations WHERE from_id IN ({stale})", (cutoff,))
+            self._conn.execute(
+                f"DELETE FROM traceroutes WHERE origin_id IN ({stale}) OR destination_id IN ({stale})",
+                (cutoff, cutoff))
+            self._conn.execute(
+                f"DELETE FROM link_observations WHERE node_a_id IN ({stale}) OR node_b_id IN ({stale})",
+                (cutoff, cutoff))
+            self._conn.execute(f"DELETE FROM node_routing_stats WHERE node_id IN ({stale})", (cutoff,))
+            self._conn.execute(f"DELETE FROM node_claims WHERE node_id IN ({stale})", (cutoff,))
+            self._conn.execute("DELETE FROM nodes WHERE last_seen < ?", (cutoff,))
+            self._conn.commit()
+            self._conn.execute("PRAGMA foreign_keys=ON")
 
     def cleanup_old_timeseries(self, max_age_hours=168):
         """Prune all time-series tables to the given retention window."""
@@ -871,6 +893,7 @@ class DataStore:
                 self._conn.execute("DELETE FROM traceroutes WHERE origin_id = ? OR destination_id = ?", (nid, nid))
                 self._conn.execute("DELETE FROM link_observations WHERE node_a_id = ? OR node_b_id = ?", (nid, nid))
                 self._conn.execute("DELETE FROM node_routing_stats WHERE node_id = ?", (nid,))
+                self._conn.execute("DELETE FROM node_claims WHERE node_id = ?", (nid,))
                 self._conn.execute("DELETE FROM nodes WHERE node_id = ?", (nid,))
             self._conn.commit()
             self._conn.execute("PRAGMA foreign_keys=ON")
