@@ -5,6 +5,7 @@ from html import escape
 import folium
 from folium.plugins import MarkerCluster
 
+import config
 from database.store import DataStore
 from analysis.spof import find_spof_nodes
 
@@ -62,13 +63,8 @@ def generate_propagation_map(store: DataStore, hours: int = 168):
     links = [l for l in store.get_latest_links(hours)
              if l["node_a_id"] not in airborne_ids and l["node_b_id"] not in airborne_ids]
 
-    # Find center of all nodes with positions
-    positioned = [n for n in nodes if n["latitude"] and n["longitude"]]
-    if positioned:
-        center_lat = sum(n["latitude"] for n in positioned) / len(positioned)
-        center_lon = sum(n["longitude"] for n in positioned) / len(positioned)
-    else:
-        center_lat, center_lon = 41.0, -75.9  # Default NE PA
+    # Center on load regardless of node spread; configurable via .env
+    center_lat, center_lon = config.MESH_CENTER_LAT, config.MESH_CENTER_LON
 
     m = folium.Map(
         location=[center_lat, center_lon],

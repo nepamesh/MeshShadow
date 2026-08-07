@@ -198,7 +198,7 @@ def recalculate(store: DataStore, cell_size_m: int, padding_km: float, max_range
 
     # Cap grid size to prevent memory issues
     if grid["rows"] * grid["cols"] > 1_000_000:
-        log.warning("Grid too large (%d cells), increasing cell size", grid["rows"] * grid["cols"])
+        log.info("Grid too large (%d cells), increasing cell size", grid["rows"] * grid["cols"])
         scale = math.ceil(math.sqrt(grid["rows"] * grid["cols"] / 500_000))
         grid = build_grid_params(bbox, cell_size_m * scale)
         log.info("Adjusted grid: %d rows x %d cols", grid["rows"], grid["cols"])

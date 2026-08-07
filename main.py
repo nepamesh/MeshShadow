@@ -91,7 +91,7 @@ def run_snapshot_taker(store: DataStore):
                 total_area=summary["total_area_km2"],
                 covered_area=summary["covered_area_km2"],
                 shadow_area=summary["shadow_area_km2"],
-                active_nodes=summary["active_nodes_24h"],
+                active_nodes=summary["active_nodes"],
                 dead_zone_count=len(zones),
             )
             log.info("Coverage snapshot: %.1f%% coverage, %d dead zones",
