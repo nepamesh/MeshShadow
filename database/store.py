@@ -842,6 +842,31 @@ class DataStore:
         cutoff = int(time.time()) - (max_age_hours * 3600)
         self._execute("DELETE FROM packet_observations WHERE timestamp < ?", (cutoff,))
 
+    def _queue_purge_notices(self, node_ids: list, reason: str):
+        """Queue a DM notice for anyone who claimed a node about to be purged.
+
+        Must be called (within the caller's lock) before the node_claims rows
+        for these node_ids are deleted, since it reads them.
+        """
+        if not node_ids:
+            return
+        now = int(time.time())
+        placeholders = ", ".join("?" * len(node_ids))
+        claims = self._conn.execute(
+            f"""SELECT nc.discord_user_id, nc.node_id, n.short_name, n.long_name
+                FROM node_claims nc LEFT JOIN nodes n ON nc.node_id = n.node_id
+                WHERE nc.node_id IN ({placeholders})""",
+            node_ids,
+        ).fetchall()
+        for c in claims:
+            label = c["short_name"] or c["long_name"] or c["node_id"]
+            self._conn.execute(
+                """INSERT INTO claim_purge_notices
+                   (discord_user_id, node_id, label, reason, purged_at, notified)
+                   VALUES (?, ?, ?, ?, ?, 0)""",
+                (c["discord_user_id"], c["node_id"], label, reason, now),
+            )
+
     def cleanup_old_nodes(self, max_age_hours=24):
         """Trim stale nodes not seen within max_age_hours (see config.STALE_NODE_DAYS).
 
@@ -853,6 +878,9 @@ class DataStore:
         cutoff = int(time.time()) - (max_age_hours * 3600)
         stale = "SELECT node_id FROM nodes WHERE last_seen < ?"
         with self._lock:
+            stale_ids = [r["node_id"] for r in
+                         self._conn.execute("SELECT node_id FROM nodes WHERE last_seen < ?", (cutoff,))]
+            self._queue_purge_notices(stale_ids, reason=f"not seen in over {max_age_hours // 24} days")
             self._conn.execute("PRAGMA foreign_keys=OFF")
             self._conn.execute(f"DELETE FROM positions WHERE node_id IN ({stale})", (cutoff,))
             self._conn.execute(f"DELETE FROM device_metrics WHERE node_id IN ({stale})", (cutoff,))
@@ -895,6 +923,7 @@ class DataStore:
         if not out_of_region:
             return 0
         with self._lock:
+            self._queue_purge_notices(out_of_region, reason="outside the service region")
             self._conn.execute("PRAGMA foreign_keys=OFF")
             for nid in out_of_region:
                 self._conn.execute("DELETE FROM positions WHERE node_id = ?", (nid,))
@@ -974,4 +1003,10 @@ class DataStore:
             "UPDATE node_claims SET notified_offline = ? WHERE discord_user_id = ? AND node_id = ?",
             (1 if notified else 0, discord_user_id, node_id),
         )
+
+    def get_unnotified_purge_notices(self):
+        return self._fetchall("SELECT * FROM claim_purge_notices WHERE notified = 0")
+
+    def mark_purge_notice_notified(self, notice_id: int):
+        self._execute("UPDATE claim_purge_notices SET notified = 1 WHERE id = ?", (notice_id,))
 

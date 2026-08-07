@@ -16,6 +16,10 @@ channel (or, for claimed nodes, straight to the owning user's DMs):
   Also DMs anyone who's `/claim-node`'d the affected node.
 * `ClaimedNodeOfflineDispatcher` — DMs a user when a node they claimed via
   `/claim-node` has been offline past CLAIMED_NODE_OFFLINE_HOURS.
+* `ClaimPurgeNoticeDispatcher` — DMs a claimant when their claimed node gets
+  deleted entirely by hourly maintenance (stale or out-of-region), since the
+  claim disappears along with it and would otherwise go quiet with no
+  explanation.
 * `DailyDigestDispatcher`  — one summary embed per day at DISCORD_DIGEST_HOUR
   covering node health, coverage, anomaly counts, SPOFs, low-battery nodes,
   and router health warnings.
@@ -545,6 +549,48 @@ class ClaimedNodeOfflineDispatcher:
                 embed.set_footer(text="MeshPropagation")
                 if await dm_user(self.bot, claim["discord_user_id"], embed):
                     self.store.set_claim_notified(claim["discord_user_id"], node_id, False)
+
+
+class ClaimPurgeNoticeDispatcher:
+    """DMs a claimant when their claimed node gets deleted by hourly maintenance
+    (stale past STALE_NODE_DAYS, or purged as out-of-region).
+
+    cleanup_old_nodes()/cleanup_out_of_region() queue a row in
+    claim_purge_notices for each affected claim before deleting it (the claim
+    itself is gone by the time this dispatcher runs — there's nothing left to
+    watch, so this is a one-time notice, not an ongoing state like the other
+    claim dispatchers).
+    """
+
+    def __init__(self, bot: discord.Client, store: DataStore, interval: int = None):
+        self.bot = bot
+        self.store = store
+        self.interval = interval or config.CLAIM_PURGE_NOTICE_CHECK_INTERVAL_SEC
+
+    async def start(self):
+        log.info("Claim purge notice dispatcher started")
+        while True:
+            await asyncio.sleep(self.interval)
+            try:
+                await self._check_and_notify()
+            except Exception as e:
+                log.error("Claim purge notice dispatcher error: %s", e, exc_info=True)
+
+    async def _check_and_notify(self):
+        notices = await asyncio.to_thread(self.store.get_unnotified_purge_notices)
+        for n in notices:
+            embed = discord.Embed(
+                title="Your Claimed Node Was Removed",
+                description=(
+                    f"**{n['label']}** (`{n['node_id']}`) was removed from MeshShadow's database "
+                    f"because it's {n['reason']}. Your claim on it is gone along with it.\n\n"
+                    f"If it comes back, you'll need to `/claim-node` it again."
+                ),
+                color=0x888888,
+            )
+            embed.set_footer(text="MeshPropagation")
+            if await dm_user(self.bot, n["discord_user_id"], embed):
+                await asyncio.to_thread(self.store.mark_purge_notice_notified, n["id"])
 
 
 class DailyDigestDispatcher:

@@ -98,6 +98,10 @@ ROUTER_OFFLINE_CHECK_INTERVAL_SEC = int(os.getenv("ROUTER_OFFLINE_CHECK_SEC", "6
 CLAIMED_NODE_OFFLINE_HOURS = int(os.getenv("CLAIMED_NODE_OFFLINE_HOURS", "24"))
 CLAIMED_NODE_CHECK_INTERVAL_SEC = int(os.getenv("CLAIMED_NODE_CHECK_SEC", "900"))  # 15 minutes
 
+# How often to check for claim-purge notices (a claimed node got deleted by
+# hourly maintenance — stale or out-of-region — and its claimant needs a DM).
+CLAIM_PURGE_NOTICE_CHECK_INTERVAL_SEC = int(os.getenv("CLAIM_PURGE_NOTICE_CHECK_SEC", "900"))  # 15 minutes
+
 # Proactive router health — battery/voltage trending badly, or signal quality
 # drifting below a router's own historical baseline. Separate from the hard
 # offline check: these catch a router on its way to trouble, not already gone.

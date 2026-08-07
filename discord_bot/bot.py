@@ -21,7 +21,7 @@ from .commands import setup_commands
 from .alerts import (
     AnomalyAlertDispatcher, ShadowAlertDispatcher, BlackHoleAlertDispatcher,
     RouterOfflineDispatcher, RouterHealthDispatcher, ClaimedNodeOfflineDispatcher,
-    DailyDigestDispatcher,
+    ClaimPurgeNoticeDispatcher, DailyDigestDispatcher,
 )
 
 log = logging.getLogger(__name__)
@@ -100,5 +100,9 @@ def create_bot(store: DataStore, alert_channel_id: int = 0, guild_id: str = "",
         claimed_dispatcher = ClaimedNodeOfflineDispatcher(bot, store)
         asyncio.create_task(claimed_dispatcher.start())
         log.info("Claimed-node offline DMs enabled")
+
+        purge_notice_dispatcher = ClaimPurgeNoticeDispatcher(bot, store)
+        asyncio.create_task(purge_notice_dispatcher.start())
+        log.info("Claim purge notice DMs enabled")
 
     return bot

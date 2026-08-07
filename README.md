@@ -14,7 +14,7 @@ RF propagation, coverage, and shadow-zone analytics for [Meshtastic](https://mes
 - **Router offline alerts** — flags backbone (ROUTER/ROUTER_CLIENT/ROUTER_LATE) nodes that stop transmitting entirely, and their recovery — distinct from black-hole detection, which only sees nodes that are still live but routing badly.
 - **Proactive router health warnings** — a step before offline: flags a router with fast/erratic battery drain, voltage sag, or link SNR drifting below its own historical baseline, so a router trending toward trouble gets caught before it goes dark. Posted in real time (and DMed to anyone who's claimed that node) and rolled into the daily digest.
 - **Airborne node filtering** — position reports above `AIRBORNE_ALTITUDE_M` (aircraft-mounted nodes, planes passing overhead) are flagged and excluded from the map and shadow/coverage calculations, without deleting their history.
-- **Claimed-node DMs** — Discord users can `/claim-node` a node they own and get DM'd once it's been offline past a threshold, and again when it's back.
+- **Claimed-node DMs** — Discord users can `/claim-node` a node they own and get DM'd once it's been offline past a threshold, and again when it's back. If the node itself gets purged by maintenance (stale or out-of-region), the claimant gets a one-time DM explaining why the claim is gone instead of it just going silent.
 - **Weather correlation** — fetches periodic weather for the mesh center and correlates with link quality.
 - **Daily digest** — scheduled Discord summary of mesh health, coverage, anomalies, and SPOF nodes.
 - **Node Ledger API** — `/api/ledger` serves aggregate stats (nodes online, uptime %, alert counts, 30-day trends) to the nepamesh.com Node Ledger dashboard, CORS-scoped to that origin.

@@ -263,4 +263,19 @@ CREATE TABLE IF NOT EXISTS node_claims (
 );
 CREATE INDEX IF NOT EXISTS idx_node_claims_node ON node_claims(node_id);
 
+-- Queued DMs for claimants whose claimed node was just purged (stale or
+-- out-of-region maintenance). No FK on node_id -- by the time this row is
+-- read, the node is already gone from `nodes`.
+
+CREATE TABLE IF NOT EXISTS claim_purge_notices (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    discord_user_id     TEXT NOT NULL,
+    node_id             TEXT NOT NULL,
+    label               TEXT,
+    reason              TEXT NOT NULL,
+    purged_at           INTEGER NOT NULL,
+    notified            INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_purge_notices_pending ON claim_purge_notices(notified);
+
 """
