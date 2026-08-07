@@ -1,5 +1,7 @@
 # MeshShadow
 
+![MeshShadow](assets/logo.png)
+
 RF propagation, coverage, and shadow-zone analytics for [Meshtastic](https://meshtastic.org/) networks. MeshShadow ingests live MQTT traffic from a Meshtastic mesh, correlates link quality with weather, models terrain-driven shadow zones, detects packet black holes, and surfaces it all through a web dashboard and a Discord bot.
 
 ## Features
